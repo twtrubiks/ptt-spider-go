@@ -1,0 +1,45 @@
+# Go PTT Spider 配置檔案
+# 此檔案用於配置爬蟲的各項參數，無需重新編譯即可調整
+
+crawler:
+  # 並行工作者數量
+  workers: 10          # 下載工作者數量 (建議 5-20)
+  parserCount: 10      # 內容解析器數量 (建議 5-15)
+  
+  # 通道緩衝區大小
+  channels:
+    articleInfo: 100   # 文章資訊通道緩衝區
+    downloadTask: 200  # 下載任務通道緩衝區
+    markdownTask: 100  # Markdown 任務通道緩衝區
+  
+  # 延遲設定 (避免被封鎖)
+  delays:
+    minMs: 500         # 最小延遲毫秒數
+    maxMs: 2000        # 最大延遲毫秒數
+  
+  # HTTP 連線池設定 (🔥 已優化)
+  http:
+    timeout: "30s"                 # HTTP 請求超時時間
+    maxIdleConns: 100              # 最大空閒連線數
+    maxIdleConnsPerHost: 20        # 每個主機的最大空閒連線數 (適合 PTT 單一主機)
+    idleConnTimeout: "90s"         # 空閒連線超時時間
+    tlsHandshakeTimeout: "10s"     # TLS 握手超時時間
+    expectContinueTimeout: "1s"    # Expect: 100-continue 超時時間
+
+# 使用範例：
+# 1. 保守設定 (避免被封鎖)：
+#    workers: 5
+#    delays: {minMs: 1000, maxMs: 3000}
+#    http: {maxIdleConnsPerHost: 5, idleConnTimeout: "60s"}
+# 
+# 2. 激進設定 (高速爬取)：
+#    workers: 20
+#    delays: {minMs: 100, maxMs: 500}
+#    http: {maxIdleConnsPerHost: 30, idleConnTimeout: "120s"}
+# 
+# 3. 記憶體受限環境：
+#    channels: {articleInfo: 50, downloadTask: 100, markdownTask: 50}
+#    http: {maxIdleConns: 50, maxIdleConnsPerHost: 10}
+#
+# 4. 高延遲網路環境：
+#    http: {timeout: "60s", tlsHandshakeTimeout: "20s", idleConnTimeout: "180s"}

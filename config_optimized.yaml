@@ -1,0 +1,17 @@
+crawler:
+  workers: 10
+  parserCount: 10
+  channels:
+    articleInfo: 100
+    downloadTask: 200
+    markdownTask: 100
+  delays:
+    minMs: 500
+    maxMs: 2000
+  http:
+    timeout: "30s"
+    maxIdleConns: 100
+    maxIdleConnsPerHost: 20
+    idleConnTimeout: "90s"
+    tlsHandshakeTimeout: "10s"
+    expectContinueTimeout: "1s"

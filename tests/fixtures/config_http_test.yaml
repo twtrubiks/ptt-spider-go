@@ -1,0 +1,10 @@
+crawler:
+  workers: 10
+  parserCount: 10
+  http:
+    timeout: "45s"
+    maxIdleConns: 200
+    maxIdleConnsPerHost: 30
+    idleConnTimeout: "120s"
+    tlsHandshakeTimeout: "15s"
+    expectContinueTimeout: "2s"

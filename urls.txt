@@ -1,0 +1,5 @@
+# 這是一個範例檔案，請將您想爬取的 PTT 文章網址貼在此處。
+# 每個網址請單獨佔一行。
+
+https://www.ptt.cc/bbs/Beauty/M.1749174450.A.3B6.html
+https://www.ptt.cc/bbs/Gossiping/M.1751701465.A.A02.html
