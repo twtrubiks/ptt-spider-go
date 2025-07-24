@@ -7,18 +7,28 @@ import (
 	"strings"
 
 	"github.com/twtrubiks/ptt-spider-go/constants"
+	"github.com/twtrubiks/ptt-spider-go/errors"
+	"github.com/twtrubiks/ptt-spider-go/interfaces"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
-// Generate 根據提供的資訊產生一個 Markdown 檔案
-func Generate(info types.MarkdownInfo) error {
+// GeneratorImpl 實現 MarkdownGenerator 介面
+type GeneratorImpl struct{}
+
+// NewGenerator 建立新的 Markdown 生成器實例
+func NewGenerator() interfaces.MarkdownGenerator {
+	return &GeneratorImpl{}
+}
+
+// Generate 實現 MarkdownGenerator 介面的 Generate 方法
+func (g *GeneratorImpl) Generate(info types.MarkdownInfo) error {
 	// 確保儲存目錄存在
 	if err := os.MkdirAll(info.SaveDir, constants.DirPermission); err != nil {
-		return fmt.Errorf("建立目錄失敗 %s: %w", info.SaveDir, err)
+		return errors.NewFileError(fmt.Sprintf("建立目錄失敗 %s", info.SaveDir), err)
 	}
 
 	// 設定 Markdown 檔案路徑
-	mdFileName := fmt.Sprintf("README.md")
+	mdFileName := "README.md"
 	mdFilePath := filepath.Join(info.SaveDir, mdFileName)
 
 	// 建立一個 strings.Builder 來高效地建立 Markdown 內容
@@ -50,7 +60,7 @@ func Generate(info types.MarkdownInfo) error {
 	// 將組合好的內容寫入檔案
 	err := os.WriteFile(mdFilePath, []byte(builder.String()), constants.FilePermission)
 	if err != nil {
-		return fmt.Errorf("寫入 Markdown 檔案失敗: %w", err)
+		return errors.NewFileError("寫入 Markdown 檔案失敗", err)
 	}
 
 	return nil

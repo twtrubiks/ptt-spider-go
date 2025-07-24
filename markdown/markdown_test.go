@@ -17,173 +17,163 @@ func TestGenerate(t *testing.T) {
 		check   func(t *testing.T, filePath string)
 	}{
 		{
-			name: "Generate basic markdown",
-			info: types.MarkdownInfo{
-				Title:      "[正妹] 測試標題",
-				ArticleURL: "https://www.ptt.cc/bbs/Beauty/M.1234567890.A.ABC.html",
-				PushCount:  99,
-				ImageURLs: []string{
-					"https://i.imgur.com/test1.jpg",
-					"https://example.com/test2.png",
-				},
-				SaveDir: "", // Will be set to temp dir
-			},
+			name:    "Generate basic markdown",
+			info:    createBasicMarkdownInfo(),
 			wantErr: false,
-			check: func(t *testing.T, filePath string) {
-				content, err := os.ReadFile(filePath)
-				if err != nil {
-					t.Fatalf("Failed to read generated file: %v", err)
-				}
-
-				contentStr := string(content)
-
-				// Check title
-				if !strings.Contains(contentStr, "# [正妹] 測試標題") {
-					t.Error("Generated markdown should contain title")
-				}
-
-				// Check article URL
-				if !strings.Contains(contentStr, "https://www.ptt.cc/bbs/Beauty/M.1234567890.A.ABC.html") {
-					t.Error("Generated markdown should contain article URL")
-				}
-
-				// Check push count
-				if !strings.Contains(contentStr, "**推文數量**: 99") {
-					t.Error("Generated markdown should contain push count")
-				}
-
-				// Check image references
-				if !strings.Contains(contentStr, "![test1.jpg](./test1.jpg)") {
-					t.Error("Generated markdown should contain first image reference")
-				}
-				if !strings.Contains(contentStr, "![test2.png](./test2.png)") {
-					t.Error("Generated markdown should contain second image reference")
-				}
-
-				// Check structure
-				if !strings.Contains(contentStr, "## 圖片列表") {
-					t.Error("Generated markdown should contain image list header")
-				}
-			},
+			check:   checkBasicMarkdown,
 		},
 		{
-			name: "Generate markdown with imgur links",
-			info: types.MarkdownInfo{
-				Title:      "[分享] Imgur 測試",
-				ArticleURL: "https://www.ptt.cc/bbs/Test/M.1234567890.A.ABC.html",
-				PushCount:  50,
-				ImageURLs: []string{
-					"https://i.imgur.com/abc123",     // No extension
-					"https://i.imgur.com/def456.jpg", // With extension
-				},
-				SaveDir: "", // Will be set to temp dir
-			},
+			name:    "Generate markdown with imgur links",
+			info:    createImgurMarkdownInfo(),
 			wantErr: false,
-			check: func(t *testing.T, filePath string) {
-				content, err := os.ReadFile(filePath)
-				if err != nil {
-					t.Fatalf("Failed to read generated file: %v", err)
-				}
-
-				contentStr := string(content)
-
-				// Check imgur link without extension gets .jpg added
-				if !strings.Contains(contentStr, "![abc123.jpg](./abc123.jpg)") {
-					t.Error("Imgur link without extension should get .jpg added")
-				}
-
-				// Check imgur link with extension stays the same
-				if !strings.Contains(contentStr, "![def456.jpg](./def456.jpg)") {
-					t.Error("Imgur link with extension should stay the same")
-				}
-			},
+			check:   checkImgurMarkdown,
 		},
 		{
-			name: "Generate markdown with no images",
-			info: types.MarkdownInfo{
-				Title:      "[問題] 無圖文章",
-				ArticleURL: "https://www.ptt.cc/bbs/Test/M.1234567890.A.ABC.html",
-				PushCount:  5,
-				ImageURLs:  []string{},
-				SaveDir:    "", // Will be set to temp dir
-			},
+			name:    "Generate markdown with no images",
+			info:    createNoImagesMarkdownInfo(),
 			wantErr: false,
-			check: func(t *testing.T, filePath string) {
-				content, err := os.ReadFile(filePath)
-				if err != nil {
-					t.Fatalf("Failed to read generated file: %v", err)
-				}
-
-				contentStr := string(content)
-
-				// Should still have basic structure
-				if !strings.Contains(contentStr, "# [問題] 無圖文章") {
-					t.Error("Should contain title")
-				}
-				if !strings.Contains(contentStr, "## 圖片列表") {
-					t.Error("Should contain image list header even with no images")
-				}
-
-				// Should not contain any image references
-				if strings.Contains(contentStr, "![") {
-					t.Error("Should not contain any image references")
-				}
-			},
+			check:   checkNoImagesMarkdown,
 		},
 		{
-			name: "Generate markdown with special characters in title",
-			info: types.MarkdownInfo{
-				Title:      "[正妹] 測試/特殊:字元*標題",
-				ArticleURL: "https://www.ptt.cc/bbs/Beauty/M.1234567890.A.ABC.html",
-				PushCount:  10,
-				ImageURLs: []string{
-					"https://example.com/test.jpg",
-				},
-				SaveDir: "", // Will be set to temp dir
-			},
+			name:    "Generate markdown with special characters in title",
+			info:    createSpecialCharsMarkdownInfo(),
 			wantErr: false,
-			check: func(t *testing.T, filePath string) {
-				content, err := os.ReadFile(filePath)
-				if err != nil {
-					t.Fatalf("Failed to read generated file: %v", err)
-				}
-
-				contentStr := string(content)
-
-				// Should preserve special characters in markdown content
-				if !strings.Contains(contentStr, "[正妹] 測試/特殊:字元*標題") {
-					t.Error("Should preserve special characters in title")
-				}
-			},
+			check:   checkSpecialCharsMarkdown,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create temporary directory for each test
-			tmpDir := t.TempDir()
-			tt.info.SaveDir = tmpDir
-
-			err := Generate(tt.info)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Generate() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if !tt.wantErr {
-				// Check that README.md was created
-				filePath := filepath.Join(tmpDir, "README.md")
-				if _, err := os.Stat(filePath); os.IsNotExist(err) {
-					t.Error("README.md file was not created")
-					return
-				}
-
-				// Run custom check if provided
-				if tt.check != nil {
-					tt.check(t, filePath)
-				}
-			}
+			runTestCase(t, tt)
 		})
+	}
+}
+
+// Test data creation functions
+func createBasicMarkdownInfo() types.MarkdownInfo {
+	return types.MarkdownInfo{
+		Title:      "[正妹] 測試標題",
+		ArticleURL: "https://www.ptt.cc/bbs/Beauty/M.1234567890.A.ABC.html",
+		PushCount:  99,
+		ImageURLs: []string{
+			"https://i.imgur.com/test1.jpg",
+			"https://example.com/test2.png",
+		},
+		SaveDir: "",
+	}
+}
+
+func createImgurMarkdownInfo() types.MarkdownInfo {
+	return types.MarkdownInfo{
+		Title:      "[分享] Imgur 測試",
+		ArticleURL: "https://www.ptt.cc/bbs/Test/M.1234567890.A.ABC.html",
+		PushCount:  50,
+		ImageURLs: []string{
+			"https://i.imgur.com/abc123",
+			"https://i.imgur.com/def456.jpg",
+		},
+		SaveDir: "",
+	}
+}
+
+func createNoImagesMarkdownInfo() types.MarkdownInfo {
+	return types.MarkdownInfo{
+		Title:      "[問題] 無圖文章",
+		ArticleURL: "https://www.ptt.cc/bbs/Test/M.1234567890.A.ABC.html",
+		PushCount:  5,
+		ImageURLs:  []string{},
+		SaveDir:    "",
+	}
+}
+
+func createSpecialCharsMarkdownInfo() types.MarkdownInfo {
+	return types.MarkdownInfo{
+		Title:      "[正妹] 測試/特殊:字元*標題",
+		ArticleURL: "https://www.ptt.cc/bbs/Beauty/M.1234567890.A.ABC.html",
+		PushCount:  10,
+		ImageURLs: []string{
+			"https://example.com/test.jpg",
+		},
+		SaveDir: "",
+	}
+}
+
+// Check functions
+func checkBasicMarkdown(t *testing.T, filePath string) {
+	content := readFileContent(t, filePath)
+
+	checkContentContains(t, content, "# [正妹] 測試標題", "Generated markdown should contain title")
+	checkContentContains(t, content, "https://www.ptt.cc/bbs/Beauty/M.1234567890.A.ABC.html", "Generated markdown should contain article URL")
+	checkContentContains(t, content, "**推文數量**: 99", "Generated markdown should contain push count")
+	checkContentContains(t, content, "![test1.jpg](./test1.jpg)", "Generated markdown should contain first image reference")
+	checkContentContains(t, content, "![test2.png](./test2.png)", "Generated markdown should contain second image reference")
+	checkContentContains(t, content, "## 圖片列表", "Generated markdown should contain image list header")
+}
+
+func checkImgurMarkdown(t *testing.T, filePath string) {
+	content := readFileContent(t, filePath)
+
+	checkContentContains(t, content, "![abc123.jpg](./abc123.jpg)", "Imgur link without extension should get .jpg added")
+	checkContentContains(t, content, "![def456.jpg](./def456.jpg)", "Imgur link with extension should stay the same")
+}
+
+func checkNoImagesMarkdown(t *testing.T, filePath string) {
+	content := readFileContent(t, filePath)
+
+	checkContentContains(t, content, "# [問題] 無圖文章", "Should contain title")
+	checkContentContains(t, content, "## 圖片列表", "Should contain image list header even with no images")
+
+	if strings.Contains(content, "![") {
+		t.Error("Should not contain any image references")
+	}
+}
+
+func checkSpecialCharsMarkdown(t *testing.T, filePath string) {
+	content := readFileContent(t, filePath)
+
+	checkContentContains(t, content, "[正妹] 測試/特殊:字元*標題", "Should preserve special characters in title")
+}
+
+// Helper functions
+func readFileContent(t *testing.T, filePath string) string {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("Failed to read generated file: %v", err)
+	}
+	return string(content)
+}
+
+func checkContentContains(t *testing.T, content, expected, errorMsg string) {
+	if !strings.Contains(content, expected) {
+		t.Error(errorMsg)
+	}
+}
+
+func runTestCase(t *testing.T, tt struct {
+	name    string
+	info    types.MarkdownInfo
+	wantErr bool
+	check   func(t *testing.T, filePath string)
+}) {
+	tmpDir := t.TempDir()
+	tt.info.SaveDir = tmpDir
+
+	err := Generate(tt.info)
+	if (err != nil) != tt.wantErr {
+		t.Errorf("Generate() error = %v, wantErr %v", err, tt.wantErr)
+		return
+	}
+
+	if !tt.wantErr {
+		filePath := filepath.Join(tmpDir, "README.md")
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Error("README.md file was not created")
+			return
+		}
+
+		if tt.check != nil {
+			tt.check(t, filePath)
+		}
 	}
 }
 

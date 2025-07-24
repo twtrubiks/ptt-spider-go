@@ -1,83 +1,27 @@
-# golangci-lint 配置檔案
+# golangci-lint v2.3.0 配置檔案
+version: "2"
 
-# 運行設定
 run:
   timeout: 5m
-  issues-exit-code: 1
-  tests: true
 
-# 輸出設定
-output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
-
-# 啟用的 linters
 linters:
   enable:
-    - errcheck         # 檢查未處理的錯誤
-    - gosimple        # 簡化代碼建議
-    - govet           # Go vet 檢查
-    - ineffassign     # 檢查無效賦值
-    - unused          # 檢查未使用的常數、變數、函數等
-    - goimports       # 檢查 import 格式
-    - misspell        # 檢查拼寫錯誤
-    - gofmt           # 檢查 gofmt 格式
-    - revive          # 替代 golint 的快速 linter
-    - gocyclo         # 循環複雜度檢查
-    - goconst         # 檢查可以轉為常數的重複字串
-    - godot           # 檢查註解是否以句號結尾
-    - nakedret        # 檢查裸返回語句
-    - whitespace      # 檢查多餘的空白
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - gocyclo
+    - goconst
+    - revive
+    - gocritic
+    - importas
 
-  disable:
-    - staticcheck     # 暫時禁用，避免版本問題
-    - gocritic        # 暫時禁用，避免版本問題
-    - gosec           # 暫時禁用，避免版本問題
-    - exportloopref   # 暫時禁用，避免版本問題
-    - typecheck       # 暫時禁用，避免版本問題
-    - varnamelen      # 變數名稱長度檢查（太嚴格）
-    - nlreturn        # 返回語句前的空行檢查（太嚴格）
-    - wsl             # 空行檢查（太嚴格）
-
-# linters 設定
 linters-settings:
-  # gocyclo 設定
   gocyclo:
     min-complexity: 15
-
-  # gocritic 設定
-  gocritic:
-    enabled-checks:
-      - nestingReduce
-      - unnamedResult
-      - ruleguard
-      - truncateCmp
-
-  # revive 設定
   revive:
     rules:
       - name: exported
-        disabled: true  # 先禁用，因為可能有很多未導出的函數缺少註釋
-
-  # gosec 設定
-  gosec:
-    excludes:
-      - G404  # 使用 math/rand 而非 crypto/rand（爬蟲場景可接受）
-
-# 問題設定
-issues:
-  # 排除的檔案模式
-  exclude-rules:
-    # 排除測試檔案的某些檢查
-    - path: _test\.go
-      linters:
-        - gosec
-        - gocritic
-
-  # 最大問題數量（0 為無限制）
-  max-issues-per-linter: 0
-  max-same-issues: 0
-
-  # 是否排除預設的排除規則
-  exclude-use-default: false
+        disabled: true

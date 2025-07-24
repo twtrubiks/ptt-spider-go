@@ -9,14 +9,15 @@ import (
 	"syscall"
 
 	"github.com/twtrubiks/ptt-spider-go/config"
+	"github.com/twtrubiks/ptt-spider-go/constants"
 	"github.com/twtrubiks/ptt-spider-go/crawler"
 )
 
 func main() {
 	// 定義命令列參數
-	board := flag.String("board", "beauty", "看板名稱")
-	pages := flag.Int("pages", 3, "要爬取的頁數")
-	pushRate := flag.Int("push", 10, "推文數門檻")
+	board := flag.String("board", constants.DefaultBoard, "看板名稱")
+	pages := flag.Int("pages", constants.DefaultPages, "要爬取的頁數")
+	pushRate := flag.Int("push", constants.DefaultPushRate, "推文數門檻")
 	fileURL := flag.String("file", "", "包含文章 URL 的文字檔路徑 (優先於看板模式)")
 	configPath := flag.String("config", "config.yaml", "配置檔案路徑")
 

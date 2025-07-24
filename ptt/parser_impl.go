@@ -10,14 +10,24 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/twtrubiks/ptt-spider-go/constants"
+	"github.com/twtrubiks/ptt-spider-go/errors"
+	"github.com/twtrubiks/ptt-spider-go/interfaces"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
-// ParseArticles 從看板列表頁解析文章資訊
-func ParseArticles(r io.Reader) ([]types.ArticleInfo, error) {
+// ParserImpl 實現 Parser 介面
+type ParserImpl struct{}
+
+// NewParser 建立新的解析器實例
+func NewParser() interfaces.Parser {
+	return &ParserImpl{}
+}
+
+// ParseArticles 實現 Parser 介面的 ParseArticles 方法
+func (p *ParserImpl) ParseArticles(r io.Reader) ([]types.ArticleInfo, error) {
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
-		return nil, err
+		return nil, errors.NewParseError("建立 goquery 文檔失敗", err)
 	}
 
 	var articles []types.ArticleInfo
@@ -62,11 +72,11 @@ func ParseArticles(r io.Reader) ([]types.ArticleInfo, error) {
 	return articles, nil
 }
 
-// ParseArticleContent 從文章頁面解析標題和圖片 URL
-func ParseArticleContent(r io.Reader) (string, []string, error) {
+// ParseArticleContent 實現 Parser 介面的 ParseArticleContent 方法
+func (p *ParserImpl) ParseArticleContent(r io.Reader) (string, []string, error) {
 	doc, err := goquery.NewDocumentFromReader(r)
 	if err != nil {
-		return "", nil, err
+		return "", nil, errors.NewParseError("建立 goquery 文檔失敗", err)
 	}
 
 	// 提取文章標題
@@ -104,40 +114,44 @@ func ParseArticleContent(r io.Reader) (string, []string, error) {
 	return title, imgURLs, nil
 }
 
-// GetMaxPage 獲取最大頁數
-func GetMaxPage(ctx context.Context, client *http.Client, board string) (int, error) {
+// GetMaxPage 實現 Parser 介面的 GetMaxPage 方法
+func (p *ParserImpl) GetMaxPage(ctx context.Context, client interfaces.HTTPClient, board string) (int, error) {
 	url := fmt.Sprintf("%s/bbs/%s/index.html", constants.PttBaseURL, board)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return 0, err
+		return 0, errors.NewNetworkError("建立請求失敗", err)
 	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return 0, err
+		return 0, errors.NewNetworkError("發送請求失敗", err)
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return 0, errors.NewNetworkError(fmt.Sprintf("HTTP 狀態錯誤: %d", resp.StatusCode), nil)
+	}
+
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return 0, err
+		return 0, errors.NewParseError("解析 HTML 失敗", err)
 	}
 
 	prevPageURL, exists := doc.Find(".btn-group-paging a:contains('‹ 上頁')").Attr("href")
 	if !exists {
-		return 0, fmt.Errorf("無法找到上一頁按鈕")
+		return 0, errors.NewParseError("無法找到上一頁按鈕", nil)
 	}
 
 	// 從 /bbs/Beauty/index2345.html 中提取 2345
 	parts := strings.Split(strings.Trim(prevPageURL, ".html"), "index")
 	if len(parts) < 2 {
-		return 0, fmt.Errorf("無法解析頁碼")
+		return 0, errors.NewParseError("無法解析頁碼", nil)
 	}
 
 	maxPage, err := strconv.Atoi(parts[1])
 	if err != nil {
-		return 0, err
+		return 0, errors.NewParseError("頁碼轉換失敗", err)
 	}
 
 	return maxPage + 1, nil

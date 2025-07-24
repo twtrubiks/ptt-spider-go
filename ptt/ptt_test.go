@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/twtrubiks/ptt-spider-go/config"
+	"github.com/twtrubiks/ptt-spider-go/constants"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
@@ -44,7 +45,7 @@ func TestParseArticles(t *testing.T) {
 				if articles[0].PushRate != 100 {
 					t.Errorf("expected push rate 100 for 爆文, got %d", articles[0].PushRate)
 				}
-				if articles[0].URL != PttHead+"/bbs/Beauty/M.1234567890.A.ABC.html" {
+				if articles[0].URL != constants.PttBaseURL+"/bbs/Beauty/M.1234567890.A.ABC.html" {
 					t.Errorf("unexpected URL: %s", articles[0].URL)
 				}
 				if articles[0].Author != "testuser" {
