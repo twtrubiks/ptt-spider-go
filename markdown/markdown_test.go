@@ -254,6 +254,10 @@ func TestGenerateFilePermissions(t *testing.T) {
 func TestGenerateErrorHandling(t *testing.T) {
 	// Test with invalid directory path (only works on Unix-like systems)
 	if os.PathSeparator == '/' {
+		if os.Getuid() == 0 { // Skip if running as root
+			t.Skip("Skipping invalid directory test when running as root")
+		}
+
 		info := types.MarkdownInfo{
 			Title:      "[測試] 錯誤處理",
 			ArticleURL: "https://www.ptt.cc/bbs/Test/M.1234567890.A.ABC.html",
@@ -265,6 +269,7 @@ func TestGenerateErrorHandling(t *testing.T) {
 		err := Generate(info)
 		if err == nil {
 			t.Error("Generate() should fail with invalid directory path")
+			return
 		}
 
 		// Error message should mention directory creation failure
