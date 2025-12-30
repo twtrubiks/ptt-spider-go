@@ -39,15 +39,16 @@ func ParseArticles(r io.Reader) ([]types.ArticleInfo, error) {
 		pushRateStr := strings.TrimSpace(s.Find(".nrec span").Text())
 
 		pushRate := 0
-		if pushRateStr == "爆" {
+		switch {
+		case pushRateStr == "爆":
 			pushRate = 100
-		} else if strings.HasPrefix(pushRateStr, "X") {
+		case strings.HasPrefix(pushRateStr, "X"):
 			// 處理 "XX" 和 "X" 開頭的噓文
 			rate, err := strconv.Atoi(pushRateStr[1:])
 			if err == nil {
 				pushRate = -rate
 			}
-		} else {
+		default:
 			pushRate, _ = strconv.Atoi(pushRateStr)
 		}
 
