@@ -239,7 +239,8 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 			log.Printf("獲取最大頁數時被中斷: %v", ctx.Err())
 			return
 		}
-		log.Fatalf("獲取最大頁數失敗: %v", err)
+		log.Printf("獲取最大頁數失敗: %v", err)
+		return
 	}
 
 	log.Printf("看板 %s 最大頁數為: %d", c.Board, maxPage)
@@ -572,7 +573,8 @@ func (c *Crawler) articleProducerFromFile(ctx context.Context, articleInfoChan c
 
 	file, err := os.Open(c.FileURL)
 	if err != nil {
-		log.Fatalf("開啟檔案失敗: %v", err)
+		log.Printf("開啟檔案失敗: %v", err)
+		return
 	}
 	defer file.Close()
 
@@ -602,6 +604,6 @@ func (c *Crawler) articleProducerFromFile(ctx context.Context, articleInfoChan c
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatalf("讀取檔案時發生錯誤: %v", err)
+		log.Printf("讀取檔案時發生錯誤: %v", err)
 	}
 }
