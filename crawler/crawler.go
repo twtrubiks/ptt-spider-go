@@ -203,7 +203,6 @@ func (c *Crawler) logCompletion(ctx context.Context, startTime time.Time) {
 func (c *Crawler) Run(ctx context.Context) {
 	startTime := time.Now()
 	log.Println("爬蟲啟動...")
-	rand.Seed(time.Now().UnixNano()) // 初始化隨機數種子
 
 	// 啟動效能監控
 	if c.Optimizer != nil {
