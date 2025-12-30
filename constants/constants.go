@@ -1,3 +1,5 @@
+// Package constants 定義 PTT 爬蟲使用的常數值，
+// 包括 URL、HTTP 標頭、檔案權限和預設配置。
 package constants
 
 const (

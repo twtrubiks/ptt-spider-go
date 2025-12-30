@@ -1,3 +1,5 @@
+// Package crawler 實現 PTT 爬蟲的核心邏輯，
+// 採用 Producer-Consumer 架構處理文章爬取、圖片下載和 Markdown 生成。
 package crawler
 
 import (

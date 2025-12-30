@@ -1,3 +1,5 @@
+// Package performance 提供效能優化工具，
+// 包括記憶體監控、自動垃圾回收和 HTTP 連線池配置。
 package performance
 
 import (
