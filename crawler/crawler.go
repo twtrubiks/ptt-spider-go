@@ -272,9 +272,11 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 			log.Printf("爬取列表頁失敗: %s, 錯誤: %v", pageURL, err)
 			continue
 		}
-		defer resp.Body.Close()
 
 		articles, err := c.Parser.ParseArticles(resp.Body)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("關閉回應 Body 失敗: %v", closeErr)
+		}
 		if err != nil {
 			log.Printf("解析列表頁失敗: %s, 錯誤: %v", pageURL, err)
 			continue
@@ -372,7 +374,11 @@ func (c *Crawler) fetchAndParseArticle(ctx context.Context, article types.Articl
 		log.Printf("爬取文章頁失敗: %s, 錯誤: %v", article.URL, err)
 		return "", nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("關閉回應 Body 失敗: %v", closeErr)
+		}
+	}()
 
 	parsedTitle, imgURLs, err := c.Parser.ParseArticleContent(resp.Body)
 	if err != nil {
@@ -527,19 +533,27 @@ func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types
 
 			if resp.StatusCode == http.StatusTooManyRequests {
 				log.Printf("工人 #%d 遇到 429 Too Many Requests，跳過此次下載: %s", id, task.ImageURL)
-				resp.Body.Close() // 即使出錯也要關閉 Body
+				if closeErr := resp.Body.Close(); closeErr != nil {
+					log.Printf("工人 #%d 關閉回應 Body 失敗: %v", id, closeErr)
+				}
 				continue
 			}
 
 			if resp.StatusCode != http.StatusOK {
 				log.Printf("工人 #%d 下載失敗 (狀態碼 %d): %s", id, resp.StatusCode, task.ImageURL)
-				resp.Body.Close() // 即使出錯也要關閉 Body
+				if closeErr := resp.Body.Close(); closeErr != nil {
+					log.Printf("工人 #%d 關閉回應 Body 失敗: %v", id, closeErr)
+				}
 				continue
 			}
 
 			// 使用立即執行的函式與 defer 來確保資源被釋放
 			func() {
-				defer resp.Body.Close()
+				defer func() {
+					if closeErr := resp.Body.Close(); closeErr != nil {
+						log.Printf("工人 #%d 關閉回應 Body 失敗: %v", id, closeErr)
+					}
+				}()
 
 				dir := filepath.Dir(task.SavePath)
 				if err := os.MkdirAll(dir, constants.DirPermission); err != nil {
@@ -552,7 +566,11 @@ func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types
 					log.Printf("工人 #%d 建立檔案失敗: %s, 錯誤: %v", id, task.SavePath, err)
 					return
 				}
-				defer file.Close()
+				defer func() {
+					if closeErr := file.Close(); closeErr != nil {
+						log.Printf("工人 #%d 關閉檔案失敗: %v", id, closeErr)
+					}
+				}()
 
 				_, err = io.Copy(file, resp.Body)
 				if err != nil {
@@ -575,7 +593,11 @@ func (c *Crawler) articleProducerFromFile(ctx context.Context, articleInfoChan c
 		log.Printf("開啟檔案失敗: %v", err)
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			log.Printf("關閉檔案失敗: %v", closeErr)
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
