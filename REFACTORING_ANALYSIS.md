@@ -3,28 +3,8 @@
 ## 專案概覽
 
 ### 程式碼結構分析
-```
-ptt-spider-go/
-├── main.go                 # 程式進入點，命令列參數處理
-├── config/                 # 配置管理模組
-│   ├── config.go          # 配置結構定義和載入邏輯
-│   └── config_test.go     # 配置測試 (覆蓋率: 94.6%)
-├── crawler/               # 爬蟲核心邏輯
-│   ├── crawler.go         # 主要爬蟲實現
-│   └── crawler_test.go    # 爬蟲測試 (覆蓋率: 38.4%)
-├── ptt/                   # PTT 網站相關功能
-│   ├── client.go          # HTTP 客戶端管理
-│   ├── parser.go          # HTML 解析邏輯
-│   └── ptt_test.go        # PTT 模組測試 (覆蓋率: 66.0%)
-├── types/                 # 資料結構定義
-│   ├── types.go           # 核心資料結構
-│   └── types_test.go      # 類型測試
-├── markdown/              # Markdown 生成功能
-│   ├── generator.go       # Markdown 檔案生成
-│   └── markdown_test.go   # Markdown 測試 (覆蓋率: 94.4%)
-└── tests/                 # 整合測試
-    └── integration_test.go # 整合測試套件
-```
+
+專案目錄結構請參閱 [PTT_Spider_Comparison.md](./PTT_Spider_Comparison.md#專案目錄結構)。
 
 ### 主要模組功能
 - **main.go**: 程式進入點，處理命令列參數和系統信號
@@ -38,11 +18,14 @@ ptt-spider-go/
 
 ### 1. 重複程式碼異味
 
-#### 位置: `ptt/client.go:29-63`
-**問題**: `NewClient()` 和 `NewClientWithConfig()` 函式有大量重複的客戶端配置邏輯
+#### 位置: `ptt/client.go` (已重構)
+**原問題**: `NewClient()` 和 `NewClientWithConfig()` 函式有大量重複的客戶端配置邏輯
 
+**已重構**: 現在透過 `configureCookies()` (第 29 行) 和 `newClientWithOptions()` (第 60 行) 統一處理客戶端配置邏輯。
+
+**重構前程式碼** (已不存在):
 ```go
-// 重複的 Cookie 設定邏輯出現在兩個函式中
+// 重複的 Cookie 設定邏輯曾出現在兩個函式中
 jar, _ := cookiejar.New(nil)
 overEighteenURL, _ := url.Parse("https://www.ptt.cc/ask/over18")
 jar.SetCookies(overEighteenURL, []*http.Cookie{
@@ -50,50 +33,68 @@ jar.SetCookies(overEighteenURL, []*http.Cookie{
 })
 ```
 
-**影響**: 維護困難、程式碼重複、修改時容易遺漏
+**原影響**: 維護困難、程式碼重複、修改時容易遺漏
 
-### 2. 龐大函式異味
+### 2. 龐大函式異味 (已重構解決)
 
-#### 位置: `crawler/crawler.go:72-127` (Run 方法)
-**問題**: Run 方法長達 55 行，負責太多職責
+#### 位置: `crawler/crawler.go` (Run 方法，現在位於第 212 行)
+**原問題**: Run 方法原本長達 55 行，負責太多職責
 - Worker 池初始化
 - Channel 管理
 - Producer 啟動
 - 同步和清理
 
-#### 位置: `crawler/crawler.go:194-299` (contentParser 方法)
-**問題**: contentParser 方法長達 105 行，職責過重
+**已重構**: 現在 Run 方法約 26 行，職責已分離到 `initializeChannels()`、`startWorkers()`、`startProducer()`、`waitAndCleanup()`、`logCompletion()` 等輔助函數。
+
+#### 位置: `crawler/crawler.go` (contentParser 方法，現在位於第 306 行)
+**原問題**: contentParser 方法原本長達 105 行，職責過重
 - HTTP 請求處理
 - 內容解析
 - 任務分派
 - 錯誤處理
 
-### 3. 魔術數字和硬編碼
+**已重構**: 現在 contentParser 方法約 15 行，職責已分離到 `processArticle()`、`getLogMessage()`、`shouldStop()`、`fetchAndParseArticle()`、`determineFinalTitle()`、`dispatchTasks()` 等輔助函數。
+
+### 3. 魔術數字和硬編碼 (已重構解決)
 
 #### 位置: 多個檔案
-**問題**: 散布在程式碼中的硬編碼值
+**原問題**: 散布在程式碼中的硬編碼值
+
+**已重構**: 現在所有硬編碼值已統一移至 `constants/constants.go`：
 ```go
-// ptt/client.go:44
-req.Header.Set("User-Agent", "Mozilla/5.0...")
-
-// ptt/client.go:52
-overEighteenURL, _ := url.Parse("https://www.ptt.cc/ask/over18")
-
-// ptt/parser.go:19
-const PttHead = "https://www.ptt.cc"
+// constants/constants.go
+const (
+    PttBaseURL       = "https://www.ptt.cc"
+    Over18URL        = "https://www.ptt.cc/ask/over18"
+    DefaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36..."
+    DirPermission    = 0755
+    FilePermission   = 0644
+)
 ```
 
-### 4. 錯誤處理反模式
+各模組現在使用 constants 套件：
+```go
+// ptt/client.go:20
+req.Header.Set("User-Agent", constants.DefaultUserAgent)
+
+// ptt/client.go:36
+overEighteenURL, err := url.Parse(constants.Over18URL)
+```
+
+### 4. 錯誤處理反模式 (已重構解決)
 
 #### 位置: 整個專案
-**問題**: 缺少自定義錯誤類型，使用通用 error
-- 無法區分不同類型的錯誤
-- 難以進行錯誤恢復
-- 錯誤資訊不夠具體
+**原問題**: 缺少自定義錯誤類型，使用通用 error
+
+**已重構**: 現在有完整的結構化錯誤處理系統 (`errors/errors.go`)：
+- 定義 5 種錯誤類型：NetworkError, ParseError, FileError, ConfigError, ValidationError
+- 支援 Go 1.13+ 的 `Unwrap()` 和 `Is()` 方法
+- 支援錯誤上下文資訊 (`WithContext()`)
+- 提供便利的錯誤建立函數 (`NewNetworkError()`, `NewParseError()` 等)
 
 ### 5. 依戀情結 (Feature Envy)
 
-#### 位置: `crawler/crawler.go:261-262`
+#### 位置: `crawler/crawler.go` (dispatchTasks 方法，第 405 行)
 **問題**: Crawler 過度依賴其他模組的內部實現
 ```go
 dirName := fmt.Sprintf("%s_%d", cleanFileName(finalTitle), article.PushRate)
@@ -102,18 +103,19 @@ saveDir := filepath.Join(c.Board, dirName)
 
 ## 測試覆蓋率評估
 
-### 當前覆蓋率狀況
-- **crawler**: 38.4% ⚠️ (需要改進)
-- **ptt**: 66.0% ⚠️ (可接受但可改進)
-- **config**: 94.6% ✅ (良好)
-- **markdown**: 94.4% ✅ (良好)
-- **總體**: 主要模組覆蓋率不足
+### 當前覆蓋率狀況 (2025-12 更新)
+- **crawler**: 65.8% ✅ (良好)
+- **ptt**: 73.8% ✅ (良好)
+- **config**: 94.6% ✅ (優秀)
+- **markdown**: 94.6% ✅ (優秀)
+- **errors**: 90.9% ✅ (優秀)
+- **mocks**: 100.0% ✅ (完美)
 
-### 覆蓋率不足的原因
-1. **crawler** 模組的並發邏輯測試困難
-2. **ptt** 模組的網路請求依賴外部資源
-3. 缺少 Mock 和依賴注入
-4. 錯誤處理路徑測試不足
+### 覆蓋率挑戰
+1. **crawler** 模組的並發邏輯測試複雜
+2. **ptt** 模組的網路請求需要 Mock 測試
+3. ✅ 已實現 Mock 框架和依賴注入 (`mocks/` 模組)
+4. 部分邊界條件和錯誤處理路徑尚未完全覆蓋
 
 ## 重構建議
 
@@ -141,9 +143,12 @@ func configureCookies(client *http.Client) error {
         return fmt.Errorf("建立 cookie jar 失敗: %w", err)
     }
 
-    overEighteenURL, _ := url.Parse(constants.Over18URL)
+    overEighteenURL, err := url.Parse(constants.Over18URL)
+    if err != nil {
+        return fmt.Errorf("解析 over18 URL 失敗: %w", err)
+    }
     jar.SetCookies(overEighteenURL, []*http.Cookie{
-        {Name: "over18", Value: "1"},
+        {Name: constants.Over18CookieName, Value: constants.Over18CookieValue},
     })
 
     client.Jar = jar
@@ -241,6 +246,7 @@ const (
     ParseError
     FileError
     ConfigError
+    ValidationError
 )
 
 func (e *CrawlerError) Error() string {
@@ -381,17 +387,17 @@ crawler := &Crawler{
 3. ✅ **分離 crawler.go 的大函式**: 提取小函式
 4. ✅ **驗證重構**: 確保所有測試通過
 
-### 階段 2: 架構改進 (2-3 週)
-1. **定義錯誤類型**: 改進錯誤處理
-2. **介面抽象**: 提高可測試性
-3. **依賴注入**: 降低耦合度
-4. **增加測試**: 覆蓋率達到 80%
+### 階段 2: 架構改進 ✅ (已完成)
+1. ✅ **定義錯誤類型**: 改進錯誤處理
+2. ✅ **介面抽象**: 提高可測試性
+3. ✅ **依賴注入**: 降低耦合度
+4. ✅ **增加測試**: 測試覆蓋率達到 65-95%
 
-### 階段 3: 最佳化 (1 週)
-1. **效能調校**: 連線池和記憶體優化
-2. **文件完善**: 更新 README 和註釋
-3. **靜態分析**: 修復 linter 問題
-4. **最終測試**: 確保功能完整性
+### 階段 3: 最佳化 ✅ (已完成)
+1. ✅ **效能調校**: 連線池和記憶體優化
+2. ✅ **文件完善**: 更新 README 和註釋
+3. ✅ **靜態分析**: 修復 linter 問題
+4. ✅ **最終測試**: 確保功能完整性
 
 ## 風險評估
 
@@ -414,7 +420,7 @@ crawler := &Crawler{
 ### 程式碼品質提升
 - **可讀性**: 函式更小、職責明確
 - **可維護性**: 減少重複、統一配置
-- **可測試性**: 更高的測試覆蓋率 (目標 >80%)
+- **可測試性**: 良好的測試覆蓋率 (65-95%)
 
 ### 開發效率提升
 - **除錯容易**: 更好的錯誤訊息和日誌
@@ -459,7 +465,7 @@ crawler := &Crawler{
 
 #### 3. 分離 crawler.go 大函式
 **實施內容**:
-- 將 55 行的 `Run()` 方法重構為 13 行
+- 將原本 55 行的 `Run()` 方法重構為約 26 行（位於第 212 行）
 - 新增輔助結構: `WorkerChannels`, `Workers`
 - 提取 5 個小函式: `initializeChannels()`, `startWorkers()`, `startProducer()`, `waitAndCleanup()`, `logCompletion()`
 
@@ -483,12 +489,12 @@ crawler := &Crawler{
 3. **可擴展性**: 模組化架構設計
 4. **錯誤處理**: 使用標準錯誤包裝模式
 
-### 下一步
-準備進入階段 2: 架構改進，將專注於:
-1. 定義自定義錯誤類型
-2. 建立介面抽象
-3. 實施依賴注入
-4. 提升測試覆蓋率至 80%
+### 後續完成項目
+階段 2 架構改進已完成，包含:
+1. ✅ 定義自定義錯誤類型
+2. ✅ 建立介面抽象
+3. ✅ 實施依賴注入
+4. ✅ 測試覆蓋率達到 65-95%
 
 ## 階段 2 完成報告
 
@@ -515,17 +521,17 @@ crawler := &Crawler{
 - HTTPClient: HTTP 客戶端抽象
 - Parser: HTML 解析器介面
 - MarkdownGenerator: Markdown 生成器介面
+- FileDownloader: 檔案下載器介面
 - ConfigLoader: 配置載入器介面
-- ArticleDownloader: 文章下載器介面
-- ImageDownloader: 圖片下載器介面
-- FileManager: 檔案管理器介面
-- URLBuilder: URL 構建器介面
-- ProgressReporter: 進度報告器介面
-- RetryPolicy: 重試策略介面
+- ArticleProducer: 文章生產者介面
+- ContentProcessor: 內容處理器介面
+- WorkerPool: 工人池管理介面
+- Logger: 日誌記錄器介面
+- Crawler: 爬蟲主介面
+- Validator: 驗證器介面
+- CacheManager: 快取管理器介面
 - RateLimiter: 速率限制器介面
 - MetricsCollector: 指標收集器介面
-- HealthChecker: 健康檢查器介面
-- Scheduler: 任務調度器介面
 
 #### 3. 實施依賴注入
 **實施內容**:
@@ -551,11 +557,13 @@ crawler := &Crawler{
 
 ### 測試結果
 - ✅ 所有測試通過 (go test ./...)
-- ✅ 顯著提升測試覆蓋率:
-  - crawler: 38.4% → ~85%
-  - ptt/parser: 新增 85.5%
-  - markdown: 87.8%
-  - 整體覆蓋率達到目標 >80%
+- ✅ 測試覆蓋率現況 (2025-12):
+  - crawler: 65.8%
+  - ptt: 73.8%
+  - markdown: 94.6%
+  - config: 94.6%
+  - errors: 90.9%
+  - mocks: 100.0%
 
 ### 架構改進成果
 1. **模組化**: 清晰的介面定義和職責分離
@@ -598,13 +606,13 @@ crawler := &Crawler{
   - 模組化架構與依賴注入
   - 自定義錯誤處理系統
   - 效能監控與優化
-  - 高測試覆蓋率 (>85%)
+  - 良好測試覆蓋率 (65-95%)
 
 ### 整體重構成果總結
 
 #### 程式碼品質提升
 - **模組化程度**: 從單體結構轉為清晰的模組化架構
-- **測試覆蓋率**: 從 ~40% 提升至 >85%
+- **測試覆蓋率**: 從 ~40% 提升至 65-95%
 - **錯誤處理**: 從通用 error 升級為結構化錯誤系統
 - **程式碼重複**: 消除約 30% 的重複程式碼
 
@@ -620,12 +628,12 @@ crawler := &Crawler{
 在程式碼品質檢查中發現多個函數的循環複雜度超過建議的 15，需要進行重構以提高可維護性。
 
 ### 問題函數識別
-使用 `gocyclo -over 15 .` 檢測到以下高複雜度函數：
+使用 `gocyclo -over 15 .` 檢測到以下高複雜度函數（重構前）：
 
-1. **crawler/crawler.go:297 - contentParser()**: 複雜度 24
-2. **markdown/markdown_test.go:12 - TestGenerate()**: 複雜度 22  
-3. **markdown/generator_impl_test.go:12 - TestGeneratorImpl_Generate()**: 複雜度 19
-4. **mocks/mocks_test.go:58 - TestMockParser()**: 複雜度 17
+1. **crawler/crawler.go - contentParser()**: 原複雜度 24 (現位於第 306 行，已重構)
+2. **markdown/markdown_test.go - TestGenerate()**: 原複雜度 22
+3. **markdown/generator_impl_test.go - TestGeneratorImpl_Generate()**: 原複雜度 19
+4. **mocks/mocks_test.go - TestMockParser()**: 原複雜度 17
 
 ### 重構策略
 

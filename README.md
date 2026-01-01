@@ -41,20 +41,6 @@ Go PTT Spider 是一個使用 Go 語言編寫的高效能 PTT 網路爬蟲，專
 
 ![img](https://cdn.imgpile.com/f/GK8cTDN_xl.png)
 
-### 執行畫面
-
-下載過程
-
-![img](https://cdn.imgpile.com/f/TrqOhds_xl.png)
-
-結果
-
-![img](https://cdn.imgpile.com/f/7WrVqan_xl.png)
-
-文字檔
-
-![img](https://cdn.imgpile.com/f/GK8cTDN_xl.png)
-
 ## 🚀 使用方法
 
 ### 安裝需求
