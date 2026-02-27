@@ -15,14 +15,16 @@ type customTransport struct {
 	transport http.RoundTripper
 }
 
-// RoundTrip 攔截請求，加入 User-Agent 標頭，然後繼續發送請求
+// RoundTrip 攔截請求，加入 User-Agent 標頭，然後繼續發送請求。
+// 依照 http.RoundTripper 契約，不修改原始 request，而是 clone 後再設定 header。
 func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("User-Agent", constants.DefaultUserAgent)
+	clone := req.Clone(req.Context())
+	clone.Header.Set("User-Agent", constants.DefaultUserAgent)
 	transport := t.transport
 	if transport == nil {
 		transport = http.DefaultTransport
 	}
-	return transport.RoundTrip(req)
+	return transport.RoundTrip(clone)
 }
 
 // configureCookies 為客戶端配置 over18 cookie
