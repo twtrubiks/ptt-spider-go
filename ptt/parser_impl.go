@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -14,6 +15,13 @@ import (
 	"github.com/twtrubiks/ptt-spider-go/interfaces"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
+
+// closeWithLog 關閉資源並記錄錯誤
+func closeWithLog(closer io.Closer, name string) {
+	if err := closer.Close(); err != nil {
+		log.Printf("關閉 %s 失敗: %v", name, err)
+	}
+}
 
 // ParserImpl 實現 Parser 介面
 type ParserImpl struct{}
@@ -128,7 +136,7 @@ func (p *ParserImpl) GetMaxPage(ctx context.Context, client interfaces.HTTPClien
 	if err != nil {
 		return 0, errors.NewNetworkError("發送請求失敗", err)
 	}
-	defer resp.Body.Close()
+	defer closeWithLog(resp.Body, "GetMaxPage response body")
 
 	if resp.StatusCode != http.StatusOK {
 		return 0, errors.NewNetworkError(fmt.Sprintf("HTTP 狀態錯誤: %d", resp.StatusCode), nil)
