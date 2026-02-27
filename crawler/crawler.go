@@ -21,6 +21,7 @@ import (
 	"github.com/twtrubiks/ptt-spider-go/config"
 	"github.com/twtrubiks/ptt-spider-go/constants"
 	"github.com/twtrubiks/ptt-spider-go/interfaces"
+	"github.com/twtrubiks/ptt-spider-go/internal/ioutil"
 	"github.com/twtrubiks/ptt-spider-go/markdown"
 	"github.com/twtrubiks/ptt-spider-go/performance"
 	"github.com/twtrubiks/ptt-spider-go/ptt"
@@ -31,13 +32,6 @@ var (
 	// 用於清理檔名中的非法字元
 	invalidChars = regexp.MustCompile(`[\/:*?"<>|]`)
 )
-
-// closeWithLog 關閉資源並記錄錯誤
-func closeWithLog(closer io.Closer, name string) {
-	if err := closer.Close(); err != nil {
-		log.Printf("關閉 %s 失敗: %v", name, err)
-	}
-}
 
 // randomDelay 根據設定的延遲範圍回傳隨機延遲時間，當 min >= max 時直接回傳 min
 func randomDelay(minDelay, maxDelay time.Duration) time.Duration {
@@ -292,7 +286,7 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 		}
 
 		articles, err := c.parser.ParseArticles(resp.Body)
-		closeWithLog(resp.Body, "回應 Body")
+		ioutil.CloseWithLog(resp.Body, "回應 Body")
 		if err != nil {
 			log.Printf("解析列表頁失敗: %s, 錯誤: %v", pageURL, err)
 			continue
@@ -389,7 +383,7 @@ func (c *Crawler) fetchAndParseArticle(ctx context.Context, article types.Articl
 		log.Printf("爬取文章頁失敗: %s, 錯誤: %v", article.URL, err)
 		return "", nil, err
 	}
-	defer closeWithLog(resp.Body, "回應 Body")
+	defer ioutil.CloseWithLog(resp.Body, "回應 Body")
 
 	parsedTitle, imgURLs, err := c.parser.ParseArticleContent(resp.Body)
 	if err != nil {
@@ -519,7 +513,7 @@ func (c *Crawler) fetchImage(ctx context.Context, id int, imageURL string) *http
 		} else {
 			log.Printf("工人 #%d 下載失敗 (狀態碼 %d): %s", id, resp.StatusCode, imageURL)
 		}
-		closeWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
+		ioutil.CloseWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
 		return nil
 	}
 	return resp
@@ -527,7 +521,7 @@ func (c *Crawler) fetchImage(ctx context.Context, id int, imageURL string) *http
 
 // saveToFile 將回應 Body 儲存至指定路徑
 func saveToFile(resp *http.Response, savePath string, id int) {
-	defer closeWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
+	defer ioutil.CloseWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
 
 	dir := filepath.Dir(savePath)
 	if err := os.MkdirAll(dir, constants.DirPermission); err != nil {
@@ -540,7 +534,7 @@ func saveToFile(resp *http.Response, savePath string, id int) {
 		log.Printf("工人 #%d 建立檔案失敗: %s, 錯誤: %v", id, savePath, err)
 		return
 	}
-	defer closeWithLog(file, fmt.Sprintf("工人 #%d 檔案", id))
+	defer ioutil.CloseWithLog(file, fmt.Sprintf("工人 #%d 檔案", id))
 
 	if _, err = io.Copy(file, resp.Body); err != nil {
 		log.Printf("工人 #%d 寫入檔案失敗: %s, 錯誤: %v", id, savePath, err)
@@ -593,7 +587,7 @@ func (c *Crawler) articleProducerFromFile(ctx context.Context, articleInfoChan c
 		log.Printf("開啟檔案失敗: %v", err)
 		return
 	}
-	defer closeWithLog(file, "檔案")
+	defer ioutil.CloseWithLog(file, "檔案")
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
