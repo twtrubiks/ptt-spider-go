@@ -249,7 +249,7 @@ func (c *Crawler) fetchMaxPage(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("建立請求失敗: %w", err)
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err := doWithRetry(ctx, c.client, req)
 	if err != nil {
 		return 0, fmt.Errorf("發送請求失敗: %w", err)
 	}
@@ -297,7 +297,7 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 			continue
 		}
 
-		resp, err := c.client.Do(req)
+		resp, err := doWithRetry(ctx, c.client, req)
 		if err != nil {
 			if ctx.Err() != nil {
 				log.Println("列表頁爬取被中斷")
@@ -396,7 +396,7 @@ func (c *Crawler) fetchAndParseArticle(ctx context.Context, article types.Articl
 		return "", nil, err
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err := doWithRetry(ctx, c.client, req)
 	if err != nil {
 		if ctx.Err() != nil {
 			log.Println("文章爬取被中斷")
@@ -519,7 +519,7 @@ func (c *Crawler) fetchImage(ctx context.Context, id int, imageURL string) *http
 		return nil
 	}
 
-	resp, err := c.client.Do(req)
+	resp, err := doWithRetry(ctx, c.client, req)
 	if err != nil {
 		if ctx.Err() != nil {
 			log.Printf("下載工人 #%d 下載被中斷", id)
@@ -530,11 +530,7 @@ func (c *Crawler) fetchImage(ctx context.Context, id int, imageURL string) *http
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusTooManyRequests {
-			log.Printf("工人 #%d 遇到 429 Too Many Requests，跳過此次下載: %s", id, imageURL)
-		} else {
-			log.Printf("工人 #%d 下載失敗 (狀態碼 %d): %s", id, resp.StatusCode, imageURL)
-		}
+		log.Printf("工人 #%d 下載失敗 (狀態碼 %d): %s", id, resp.StatusCode, imageURL)
 		ioutil.CloseWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
 		return nil
 	}
