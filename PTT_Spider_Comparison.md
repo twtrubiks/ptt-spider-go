@@ -23,27 +23,11 @@
 
 ### 14個核心介面定義
 
-專案採用介面導向設計，定義了14個核心介面實現鬆耦合架構：
+專案採用介面導向設計，遵循 Go 慣例只保留實際被使用的核心介面：
 
-#### 核心功能介面
 - **HTTPClient**: HTTP 客戶端抽象
 - **Parser**: HTML 解析器介面
 - **MarkdownGenerator**: Markdown 生成器
-- **FileDownloader**: 檔案下載器
-- **ConfigLoader**: 配置載入器
-
-#### 架構支援介面
-- **ArticleProducer**: 文章生產者
-- **ContentProcessor**: 內容處理器
-- **WorkerPool**: 工人池管理
-- **Crawler**: 爬蟲主介面
-
-#### 擴展功能介面
-- **Logger**: 日誌記錄器
-- **Validator**: 驗證器
-- **CacheManager**: 快取管理
-- **RateLimiter**: 速率限制
-- **MetricsCollector**: 指標收集
 
 ### 實際並發架構實現
 

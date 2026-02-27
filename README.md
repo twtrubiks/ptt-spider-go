@@ -322,43 +322,25 @@ ptt-spider-go/
 
 ### 核心介面架構
 
-專案採用介面導向設計，定義了 14 個核心介面，實現鬆耦合和高可測試性的架構：
+專案採用介面導向設計，遵循 Go 慣例「在消費端定義介面」，只保留實際被使用的核心介面：
 
-#### 核心功能介面
 - **HTTPClient**: HTTP 客戶端抽象，支援請求和響應處理
 - **Parser**: HTML 解析器介面，負責 PTT 頁面內容解析
 - **MarkdownGenerator**: Markdown 檔案生成器介面
-- **FileDownloader**: 檔案下載器介面，支援並發下載
-- **ConfigLoader**: 配置載入器介面，支援多種配置來源
-
-#### 架構支援介面
-- **ArticleProducer**: 文章生產者介面，支援看板和檔案模式
-- **ContentProcessor**: 內容處理器介面，處理文章內容和任務分派
-- **WorkerPool**: 工人池介面，管理並發工作者
-- **Crawler**: 爬蟲主介面，統一爬蟲操作
-
-#### 擴展功能介面
-- **Logger**: 日誌記錄器介面，支援多級日誌
-- **Validator**: 驗證器介面，驗證 URL、配置等
-- **CacheManager**: 快取管理器介面
-- **RateLimiter**: 速率限制器介面
-- **MetricsCollector**: 指標收集器介面
 
 ### 依賴注入模式
 
 ```go
 // 依賴注入範例：爬蟲建構函式
-func NewCrawler(
+func NewCrawlerWithDI(
     httpClient interfaces.HTTPClient,
     parser interfaces.Parser,
     markdownGen interfaces.MarkdownGenerator,
-    downloader interfaces.FileDownloader,
 ) *Crawler {
     return &Crawler{
-        client:      httpClient,
-        parser:      parser,
-        markdownGen: markdownGen,
-        downloader:  downloader,
+        Client:            httpClient,
+        Parser:            parser,
+        MarkdownGenerator: markdownGen,
     }
 }
 

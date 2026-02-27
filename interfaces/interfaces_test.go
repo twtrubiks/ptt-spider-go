@@ -14,17 +14,6 @@ func TestInterfacesExist(t *testing.T) {
 		_ HTTPClient        = nil
 		_ Parser            = nil
 		_ MarkdownGenerator = nil
-		_ FileDownloader    = nil
-		_ ConfigLoader      = nil
-		_ ArticleProducer   = nil
-		_ ContentProcessor  = nil
-		_ WorkerPool        = nil
-		_ Logger            = nil
-		_ Crawler           = nil
-		_ Validator         = nil
-		_ CacheManager      = nil
-		_ RateLimiter       = nil
-		_ MetricsCollector  = nil
 	)
 
 	// 如果編譯通過，則測試通過
