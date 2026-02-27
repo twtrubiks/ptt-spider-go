@@ -3,6 +3,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -76,13 +77,14 @@ func DefaultConfig() *Config {
 }
 
 // Load 載入配置檔案，支援自動降級機制.
-// 當配置檔案不存在、讀取失敗或解析失敗時，會自動使用預設配置.
+// 當配置檔案不存在時，會自動使用預設配置並返回 nil error.
+// 當讀取或解析失敗時，返回 error 讓呼叫方決定處理方式.
 // 參數:
 //   - configPath: 配置檔案的完整路徑
 //
 // 返回:
-//   - *Config: 配置物件，不會為 nil
-//   - error: 總是返回 nil，錯誤會被自動處理
+//   - *Config: 配置物件，檔案不存在時為預設配置，讀取/解析失敗時為 nil
+//   - error: 讀取或解析失敗時返回對應錯誤
 func Load(configPath string) (*Config, error) {
 	// 如果配置檔案不存在，使用預設配置
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
@@ -92,14 +94,12 @@ func Load(configPath string) (*Config, error) {
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		log.Printf("讀取配置檔案失敗，使用預設配置: %v", err)
-		return DefaultConfig(), nil
+		return nil, fmt.Errorf("讀取配置檔案失敗: %w", err)
 	}
 
 	config := DefaultConfig()
 	if err := yaml.Unmarshal(data, config); err != nil {
-		log.Printf("解析配置檔案失敗，使用預設配置: %v", err)
-		return DefaultConfig(), nil
+		return nil, fmt.Errorf("解析配置檔案失敗: %w", err)
 	}
 
 	log.Printf("成功載入配置檔案: %s", configPath)

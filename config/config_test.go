@@ -11,6 +11,7 @@ func TestLoad(t *testing.T) {
 	tests := []struct {
 		name       string
 		configPath string
+		wantErr    bool
 		validate   func(t *testing.T, cfg *Config)
 	}{
 		{
@@ -44,14 +45,10 @@ func TestLoad(t *testing.T) {
 			},
 		},
 		{
-			name:       "Load invalid config returns default",
+			name:       "Load invalid config returns error",
 			configPath: "../tests/fixtures/config_invalid.yaml",
-			validate: func(t *testing.T, cfg *Config) {
-				// Should return default config when invalid
-				if cfg.Crawler.Workers != 10 {
-					t.Errorf("expected default workers = 10, got %d", cfg.Crawler.Workers)
-				}
-			},
+			wantErr:    true,
+			validate:   nil,
 		},
 		{
 			name:       "Load non-existent config returns default",
@@ -71,7 +68,12 @@ func TestLoad(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg, err := Load(tt.configPath)
-			// Load function never returns error based on implementation
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Load() expected error, got nil")
+				}
+				return
+			}
 			if err != nil {
 				t.Errorf("Load() unexpected error = %v", err)
 				return
