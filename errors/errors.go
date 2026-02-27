@@ -1,6 +1,9 @@
 package errors
 
-import "fmt"
+import (
+	stderrors "errors"
+	"fmt"
+)
 
 // ErrorType 定義錯誤類型
 type ErrorType int
@@ -57,13 +60,19 @@ func (e *CrawlerError) Unwrap() error {
 	return e.Cause
 }
 
-// WithContext 添加上下文資訊
+// WithContext 回傳附帶上下文資訊的新 CrawlerError 副本，不修改原始實例
 func (e *CrawlerError) WithContext(key string, value interface{}) *CrawlerError {
-	if e.Context == nil {
-		e.Context = make(map[string]interface{})
+	newCtx := make(map[string]interface{}, len(e.Context)+1)
+	for k, v := range e.Context {
+		newCtx[k] = v
 	}
-	e.Context[key] = value
-	return e
+	newCtx[key] = value
+	return &CrawlerError{
+		Type:    e.Type,
+		Message: e.Message,
+		Cause:   e.Cause,
+		Context: newCtx,
+	}
 }
 
 // GetContext 獲取上下文資訊
@@ -77,8 +86,8 @@ func (e *CrawlerError) GetContext(key string) (interface{}, bool) {
 
 // Is 實現錯誤類型判斷，支援 Go 1.13+ 的 errors.Is
 func (e *CrawlerError) Is(target error) bool {
-	if target, ok := target.(*CrawlerError); ok {
-		return e.Type == target.Type
+	if crawlerTarget, ok := target.(*CrawlerError); ok {
+		return e.Type == crawlerTarget.Type
 	}
 	return false
 }
@@ -127,41 +136,46 @@ func NewValidationError(message string) *CrawlerError {
 	return NewCrawlerError(ValidationError, message)
 }
 
-// IsNetworkError 檢查是否為網路錯誤
+// IsNetworkError 檢查是否為網路錯誤（支援 wrapped error）
 func IsNetworkError(err error) bool {
-	if crawlerErr, ok := err.(*CrawlerError); ok {
+	var crawlerErr *CrawlerError
+	if stderrors.As(err, &crawlerErr) {
 		return crawlerErr.Type == NetworkError
 	}
 	return false
 }
 
-// IsParseError 檢查是否為解析錯誤
+// IsParseError 檢查是否為解析錯誤（支援 wrapped error）
 func IsParseError(err error) bool {
-	if crawlerErr, ok := err.(*CrawlerError); ok {
+	var crawlerErr *CrawlerError
+	if stderrors.As(err, &crawlerErr) {
 		return crawlerErr.Type == ParseError
 	}
 	return false
 }
 
-// IsFileError 檢查是否為檔案錯誤
+// IsFileError 檢查是否為檔案錯誤（支援 wrapped error）
 func IsFileError(err error) bool {
-	if crawlerErr, ok := err.(*CrawlerError); ok {
+	var crawlerErr *CrawlerError
+	if stderrors.As(err, &crawlerErr) {
 		return crawlerErr.Type == FileError
 	}
 	return false
 }
 
-// IsConfigError 檢查是否為配置錯誤
+// IsConfigError 檢查是否為配置錯誤（支援 wrapped error）
 func IsConfigError(err error) bool {
-	if crawlerErr, ok := err.(*CrawlerError); ok {
+	var crawlerErr *CrawlerError
+	if stderrors.As(err, &crawlerErr) {
 		return crawlerErr.Type == ConfigError
 	}
 	return false
 }
 
-// IsValidationError 檢查是否為驗證錯誤
+// IsValidationError 檢查是否為驗證錯誤（支援 wrapped error）
 func IsValidationError(err error) bool {
-	if crawlerErr, ok := err.(*CrawlerError); ok {
+	var crawlerErr *CrawlerError
+	if stderrors.As(err, &crawlerErr) {
 		return crawlerErr.Type == ValidationError
 	}
 	return false

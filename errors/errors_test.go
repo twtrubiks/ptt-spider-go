@@ -93,21 +93,26 @@ func TestCrawlerError_WithContext(t *testing.T) {
 
 	result := err.WithContext("url", "https://example.com")
 
-	if result != err {
-		t.Error("WithContext should return the same error instance")
+	// WithContext 應回傳新副本，不修改原始實例
+	if result == err {
+		t.Error("WithContext should return a new error instance")
 	}
 
-	if err.Context == nil {
-		t.Error("Context should be initialized")
+	if err.Context != nil {
+		t.Error("Original error context should remain nil")
 	}
 
-	value, exists := err.GetContext("url")
+	value, exists := result.GetContext("url")
 	if !exists {
-		t.Error("Context value should exist")
+		t.Error("Context value should exist in new instance")
 	}
 
 	if value != "https://example.com" {
 		t.Errorf("Context value = %v, want 'https://example.com'", value)
+	}
+
+	if result.Type != err.Type || result.Message != err.Message {
+		t.Error("New instance should preserve Type and Message")
 	}
 }
 
@@ -285,6 +290,18 @@ func TestErrorTypeCheckers(t *testing.T) {
 	}
 	if IsValidationError(networkErr) {
 		t.Error("IsValidationError should return false for non-validation error")
+	}
+}
+
+func TestErrorTypeCheckers_WrappedError(t *testing.T) {
+	networkErr := NewNetworkError("network error", nil)
+	wrapped := fmt.Errorf("context: %w", networkErr)
+
+	if !IsNetworkError(wrapped) {
+		t.Error("IsNetworkError should return true for wrapped network error")
+	}
+	if IsParseError(wrapped) {
+		t.Error("IsParseError should return false for wrapped network error")
 	}
 }
 
