@@ -37,10 +37,12 @@ func doWithRetry(ctx context.Context, client interfaces.HTTPClient, req *http.Re
 			return nil, fmt.Errorf("重試 %d 次後仍收到 429: %s", constants.RetryMaxAttempts, req.URL)
 		}
 
+		timer := time.NewTimer(delay)
 		select {
 		case <-ctx.Done():
+			timer.Stop()
 			return nil, ctx.Err()
-		case <-time.After(delay):
+		case <-timer.C:
 		}
 	}
 

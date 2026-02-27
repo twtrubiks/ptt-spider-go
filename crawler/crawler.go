@@ -379,11 +379,13 @@ func (c *Crawler) shouldStop(ctx context.Context, msg string) bool {
 	minDelay, maxDelay := c.config.GetDelayRange()
 	delay := randomDelay(minDelay, maxDelay)
 
+	timer := time.NewTimer(delay)
 	select {
 	case <-ctx.Done():
+		timer.Stop()
 		log.Println(msg)
 		return true
-	case <-time.After(delay):
+	case <-timer.C:
 		return false
 	}
 }
@@ -581,11 +583,13 @@ func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types
 			delay := randomDelay(minDelay, maxDelay)
 			log.Printf("工人 #%d 延遲 %v 後下載: %s", id, delay, task.ImageURL)
 
+				timer := time.NewTimer(delay)
 			select {
 			case <-ctx.Done():
+				timer.Stop()
 				log.Printf("下載工人 #%d 在延遲時被中斷", id)
 				return
-			case <-time.After(delay):
+			case <-timer.C:
 			}
 
 			if resp := c.fetchImage(ctx, id, task.ImageURL); resp != nil {
