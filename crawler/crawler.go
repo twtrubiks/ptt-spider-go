@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"os"
@@ -39,7 +39,7 @@ func randomDelay(minDelay, maxDelay time.Duration) time.Duration {
 		return minDelay
 	}
 	rangeMs := int((maxDelay - minDelay) / time.Millisecond)
-	return minDelay + time.Duration(rand.Intn(rangeMs))*time.Millisecond
+	return minDelay + time.Duration(rand.IntN(rangeMs))*time.Millisecond
 }
 
 // WorkerChannels 包含所有工人使用的 channels
