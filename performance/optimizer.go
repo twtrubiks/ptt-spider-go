@@ -19,8 +19,7 @@ type Optimizer struct {
 }
 
 // NewOptimizer 建立新的效能監控器
-// memoryThresholdMB 參數已棄用，保留以維持 API 相容性。
-func NewOptimizer(_ int64, monitorInterval time.Duration) *Optimizer {
+func NewOptimizer(monitorInterval time.Duration) *Optimizer {
 	return &Optimizer{
 		monitorInterval: monitorInterval,
 		stopChan:        make(chan struct{}),

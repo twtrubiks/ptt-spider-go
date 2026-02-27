@@ -84,7 +84,7 @@ func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.C
 	}
 
 	// 建立效能優化器 (記憶體閾值 100MB，檢查間隔 30 秒)
-	optimizer := performance.NewOptimizer(100, 30*time.Second)
+	optimizer := performance.NewOptimizer(30 * time.Second)
 
 	return &Crawler{
 		client:            client,
@@ -110,7 +110,7 @@ func NewCrawlerWithDependencies(
 	cfg *config.Config,
 ) *Crawler {
 	// 建立效能優化器
-	optimizer := performance.NewOptimizer(100, 30*time.Second)
+	optimizer := performance.NewOptimizer(30 * time.Second)
 
 	return &Crawler{
 		client:            client,

@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewOptimizer(t *testing.T) {
-	opt := NewOptimizer(100, 5*time.Second)
+	opt := NewOptimizer(5 * time.Second)
 	if opt == nil {
 		t.Fatal("NewOptimizer returned nil")
 	}
@@ -18,7 +18,7 @@ func TestNewOptimizer(t *testing.T) {
 }
 
 func TestOptimizer_StartAndStop(t *testing.T) {
-	opt := NewOptimizer(1, 50*time.Millisecond)
+	opt := NewOptimizer(50 * time.Millisecond)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -32,7 +32,7 @@ func TestOptimizer_StartAndStop(t *testing.T) {
 }
 
 func TestOptimizer_StopMultipleCalls(t *testing.T) {
-	opt := NewOptimizer(100, time.Second)
+	opt := NewOptimizer(time.Second)
 	ctx := context.Background()
 	opt.Start(ctx)
 
@@ -43,7 +43,7 @@ func TestOptimizer_StopMultipleCalls(t *testing.T) {
 }
 
 func TestOptimizer_StartContextCancel(t *testing.T) {
-	opt := NewOptimizer(100, 50*time.Millisecond)
+	opt := NewOptimizer(50 * time.Millisecond)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	opt.Start(ctx)
@@ -55,7 +55,7 @@ func TestOptimizer_StartContextCancel(t *testing.T) {
 }
 
 func TestOptimizer_MonitorLogsMemory(t *testing.T) {
-	opt := NewOptimizer(0, 30*time.Millisecond)
+	opt := NewOptimizer(30 * time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -74,7 +74,7 @@ func TestOptimizer_MonitorLogsMemory(t *testing.T) {
 }
 
 func TestGetMemoryStats(t *testing.T) {
-	opt := NewOptimizer(100, time.Second)
+	opt := NewOptimizer(time.Second)
 	stats := opt.GetMemoryStats()
 
 	if stats.Alloc == 0 {
