@@ -1,12 +1,10 @@
 package mocks
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/twtrubiks/ptt-spider-go/interfaces"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
@@ -29,7 +27,7 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 type MockParser struct {
 	ParseArticlesFunc       func(body io.Reader) ([]types.ArticleInfo, error)
 	ParseArticleContentFunc func(body io.Reader) (string, []string, error)
-	GetMaxPageFunc          func(ctx context.Context, client interfaces.HTTPClient, board string) (int, error)
+	ParseMaxPageFunc        func(body io.Reader) (int, error)
 }
 
 func (m *MockParser) ParseArticles(body io.Reader) ([]types.ArticleInfo, error) {
@@ -46,9 +44,9 @@ func (m *MockParser) ParseArticleContent(body io.Reader) (string, []string, erro
 	return "Mock Title", []string{"http://example.com/image.jpg"}, nil
 }
 
-func (m *MockParser) GetMaxPage(ctx context.Context, client interfaces.HTTPClient, board string) (int, error) {
-	if m.GetMaxPageFunc != nil {
-		return m.GetMaxPageFunc(ctx, client, board)
+func (m *MockParser) ParseMaxPage(body io.Reader) (int, error) {
+	if m.ParseMaxPageFunc != nil {
+		return m.ParseMaxPageFunc(body)
 	}
 	return 100, nil
 }

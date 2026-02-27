@@ -1,7 +1,6 @@
 package interfaces
 
 import (
-	"context"
 	"io"
 	"net/http"
 
@@ -19,8 +18,8 @@ type Parser interface {
 	ParseArticles(body io.Reader) ([]types.ArticleInfo, error)
 	// ParseArticleContent 解析文章內容頁面，返回標題和圖片 URLs
 	ParseArticleContent(body io.Reader) (title string, imageURLs []string, err error)
-	// GetMaxPage 獲取看板的最大頁數
-	GetMaxPage(ctx context.Context, client HTTPClient, board string) (int, error)
+	// ParseMaxPage 從看板首頁 HTML 解析最大頁數
+	ParseMaxPage(body io.Reader) (int, error)
 }
 
 // MarkdownGenerator 定義 Markdown 生成器介面

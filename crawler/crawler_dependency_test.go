@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/twtrubiks/ptt-spider-go/config"
-	"github.com/twtrubiks/ptt-spider-go/interfaces"
 	"github.com/twtrubiks/ptt-spider-go/mocks"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
@@ -96,7 +95,7 @@ func TestCrawler_ArticleProducerWithMocks(t *testing.T) {
 	mockParser := &mocks.MockParser{}
 
 	// Set up mock parser to return test data
-	mockParser.GetMaxPageFunc = func(ctx context.Context, client interfaces.HTTPClient, board string) (int, error) {
+	mockParser.ParseMaxPageFunc = func(body io.Reader) (int, error) {
 		return 5, nil
 	}
 

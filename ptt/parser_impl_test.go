@@ -1,14 +1,8 @@
 package ptt
 
 import (
-	"context"
-	"fmt"
-	"io"
-	"net/http"
 	"strings"
 	"testing"
-
-	"github.com/twtrubiks/ptt-spider-go/mocks"
 )
 
 func TestParserImpl_ParseArticles(t *testing.T) {
@@ -140,83 +134,36 @@ func TestParserImpl_ParseArticleContent(t *testing.T) {
 	}
 }
 
-func TestParserImpl_GetMaxPage(t *testing.T) {
+func TestParserImpl_ParseMaxPage(t *testing.T) {
 	parser := NewParser()
 
-	// Test successful response
-	mockClient := &mocks.MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
-			htmlContent := `
-				<div class="btn-group-paging">
-					<a href="/bbs/Beauty/index2345.html">‹ 上頁</a>
-				</div>
-			`
-			return &http.Response{
-				StatusCode: 200,
-				Body:       io.NopCloser(strings.NewReader(htmlContent)),
-			}, nil
-		},
-	}
-
-	maxPage, err := parser.GetMaxPage(context.Background(), mockClient, "Beauty")
+	// Test successful parse
+	htmlContent := `
+		<div class="btn-group-paging">
+			<a href="/bbs/Beauty/index2345.html">‹ 上頁</a>
+		</div>
+	`
+	maxPage, err := parser.ParseMaxPage(strings.NewReader(htmlContent))
 	if err != nil {
-		t.Fatalf("GetMaxPage failed: %v", err)
+		t.Fatalf("ParseMaxPage failed: %v", err)
 	}
-
 	if maxPage != 2346 { // 2345 + 1
 		t.Errorf("Expected max page 2346, got %d", maxPage)
 	}
 
-	// Test network error
-	mockClient.DoFunc = func(req *http.Request) (*http.Response, error) {
-		return nil, fmt.Errorf("network error")
-	}
-
-	_, err = parser.GetMaxPage(context.Background(), mockClient, "Beauty")
-	if err == nil {
-		t.Error("Expected error for network failure, got nil")
-	}
-
-	// Test HTTP error status
-	mockClient.DoFunc = func(req *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 404,
-			Body:       io.NopCloser(strings.NewReader("")),
-		}, nil
-	}
-
-	_, err = parser.GetMaxPage(context.Background(), mockClient, "Beauty")
-	if err == nil {
-		t.Error("Expected error for 404 status, got nil")
-	}
-
 	// Test missing previous page button
-	mockClient.DoFunc = func(req *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader("<div>No previous page button</div>")),
-		}, nil
-	}
-
-	_, err = parser.GetMaxPage(context.Background(), mockClient, "Beauty")
+	_, err = parser.ParseMaxPage(strings.NewReader("<div>No previous page button</div>"))
 	if err == nil {
 		t.Error("Expected error for missing previous page button, got nil")
 	}
 
 	// Test invalid page number format
-	mockClient.DoFunc = func(req *http.Request) (*http.Response, error) {
-		htmlContent := `
-			<div class="btn-group-paging">
-				<a href="/bbs/Beauty/invalid.html">‹ 上頁</a>
-			</div>
-		`
-		return &http.Response{
-			StatusCode: 200,
-			Body:       io.NopCloser(strings.NewReader(htmlContent)),
-		}, nil
-	}
-
-	_, err = parser.GetMaxPage(context.Background(), mockClient, "Beauty")
+	invalidHTML := `
+		<div class="btn-group-paging">
+			<a href="/bbs/Beauty/invalid.html">‹ 上頁</a>
+		</div>
+	`
+	_, err = parser.ParseMaxPage(strings.NewReader(invalidHTML))
 	if err == nil {
 		t.Error("Expected error for invalid page format, got nil")
 	}

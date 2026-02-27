@@ -1,14 +1,12 @@
 package mocks
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 
-	"github.com/twtrubiks/ptt-spider-go/interfaces"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
@@ -74,12 +72,12 @@ func TestMockParser(t *testing.T) {
 		testCustomParseArticleContent(t, parser)
 	})
 
-	t.Run("default GetMaxPage behavior", func(t *testing.T) {
-		testDefaultGetMaxPage(t, parser)
+	t.Run("default ParseMaxPage behavior", func(t *testing.T) {
+		testDefaultParseMaxPage(t, parser)
 	})
 
-	t.Run("custom GetMaxPage behavior", func(t *testing.T) {
-		testCustomGetMaxPage(t, parser)
+	t.Run("custom ParseMaxPage behavior", func(t *testing.T) {
+		testCustomParseMaxPage(t, parser)
 	})
 }
 
@@ -142,8 +140,8 @@ func testCustomParseArticleContent(t *testing.T, parser *MockParser) {
 	}
 }
 
-func testDefaultGetMaxPage(t *testing.T, parser *MockParser) {
-	maxPage, err := parser.GetMaxPage(context.Background(), nil, "testboard")
+func testDefaultParseMaxPage(t *testing.T, parser *MockParser) {
+	maxPage, err := parser.ParseMaxPage(strings.NewReader(""))
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
@@ -152,12 +150,12 @@ func testDefaultGetMaxPage(t *testing.T, parser *MockParser) {
 	}
 }
 
-func testCustomGetMaxPage(t *testing.T, parser *MockParser) {
-	parser.GetMaxPageFunc = func(ctx context.Context, client interfaces.HTTPClient, board string) (int, error) {
+func testCustomParseMaxPage(t *testing.T, parser *MockParser) {
+	parser.ParseMaxPageFunc = func(body io.Reader) (int, error) {
 		return 50, nil
 	}
 
-	maxPage, err := parser.GetMaxPage(context.Background(), nil, "testboard")
+	maxPage, err := parser.ParseMaxPage(strings.NewReader(""))
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}

@@ -1,10 +1,7 @@
 package ptt
 
 import (
-	"context"
-	"fmt"
 	"io"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -12,7 +9,6 @@ import (
 	"github.com/twtrubiks/ptt-spider-go/constants"
 	"github.com/twtrubiks/ptt-spider-go/errors"
 	"github.com/twtrubiks/ptt-spider-go/interfaces"
-	"github.com/twtrubiks/ptt-spider-go/internal/ioutil"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
@@ -116,26 +112,9 @@ func (p *ParserImpl) ParseArticleContent(r io.Reader) (string, []string, error) 
 	return title, imgURLs, nil
 }
 
-// GetMaxPage 實現 Parser 介面的 GetMaxPage 方法
-func (p *ParserImpl) GetMaxPage(ctx context.Context, client interfaces.HTTPClient, board string) (int, error) {
-	url := fmt.Sprintf("%s/bbs/%s/index.html", constants.PttBaseURL, board)
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return 0, errors.NewNetworkError("建立請求失敗", err)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return 0, errors.NewNetworkError("發送請求失敗", err)
-	}
-	defer ioutil.CloseWithLog(resp.Body, "GetMaxPage response body")
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, errors.NewNetworkError(fmt.Sprintf("HTTP 狀態錯誤: %d", resp.StatusCode), nil)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+// ParseMaxPage 從看板首頁 HTML 解析最大頁數
+func (p *ParserImpl) ParseMaxPage(body io.Reader) (int, error) {
+	doc, err := goquery.NewDocumentFromReader(body)
 	if err != nil {
 		return 0, errors.NewParseError("解析 HTML 失敗", err)
 	}

@@ -240,11 +240,33 @@ func (c *Crawler) Run(ctx context.Context) {
 	c.logCompletion(ctx, startTime)
 }
 
+// fetchMaxPage 從看板首頁取得最大頁數
+func (c *Crawler) fetchMaxPage(ctx context.Context) (int, error) {
+	pageURL := fmt.Sprintf("%s/bbs/%s/index.html", constants.PttBaseURL, c.board)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
+	if err != nil {
+		return 0, fmt.Errorf("建立請求失敗: %w", err)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("發送請求失敗: %w", err)
+	}
+	defer ioutil.CloseWithLog(resp.Body, "GetMaxPage 回應 Body")
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("HTTP 狀態錯誤: %d", resp.StatusCode)
+	}
+
+	return c.parser.ParseMaxPage(resp.Body)
+}
+
 // articleProducer 產生文章資訊到 channel
 func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- types.ArticleInfo) {
 	defer close(articleInfoChan)
 
-	maxPage, err := c.parser.GetMaxPage(ctx, c.client, c.board)
+	maxPage, err := c.fetchMaxPage(ctx)
 	if err != nil {
 		if ctx.Err() != nil {
 			log.Printf("獲取最大頁數時被中斷: %v", ctx.Err())
