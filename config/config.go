@@ -39,19 +39,45 @@ type DelayConfig struct {
 }
 
 // HTTPConfig HTTP 客戶端配置，控制連線超時和連線池設定.
+// YAML 字串欄位在 Load 時會一次性解析為 time.Duration，避免重複解析。
 type HTTPConfig struct {
-	Timeout               string `yaml:"timeout"`               // HTTP 請求超時時間
+	Timeout               string `yaml:"timeout"`               // HTTP 請求超時時間（YAML 字串）
 	MaxIdleConns          int    `yaml:"maxIdleConns"`          // 最大空閒連線數
 	MaxIdleConnsPerHost   int    `yaml:"maxIdleConnsPerHost"`   // 每個主機的最大空閒連線數
-	IdleConnTimeout       string `yaml:"idleConnTimeout"`       // 空閒連線超時時間
-	TLSHandshakeTimeout   string `yaml:"tlsHandshakeTimeout"`   // TLS 握手超時時間
-	ExpectContinueTimeout string `yaml:"expectContinueTimeout"` // Expect: 100-continue 超時時間
+	IdleConnTimeout       string `yaml:"idleConnTimeout"`       // 空閒連線超時時間（YAML 字串）
+	TLSHandshakeTimeout   string `yaml:"tlsHandshakeTimeout"`   // TLS 握手超時時間（YAML 字串）
+	ExpectContinueTimeout string `yaml:"expectContinueTimeout"` // Expect: 100-continue 超時時間（YAML 字串）
+
+	// 已解析的 duration 值，Load 後即可直接使用
+	parsed                bool          `yaml:"-"`
+	timeout               time.Duration `yaml:"-"`
+	idleConnTimeout       time.Duration `yaml:"-"`
+	tlsHandshakeTimeout   time.Duration `yaml:"-"`
+	expectContinueTimeout time.Duration `yaml:"-"`
+}
+
+// parseDurationWithDefault 解析 duration 字串，失敗時記錄警告並回傳預設值。
+func parseDurationWithDefault(value string, defaultVal time.Duration, name string) time.Duration {
+	if d, err := time.ParseDuration(value); err == nil {
+		return d
+	}
+	log.Printf("解析 %s 失敗，使用預設值 %v", name, defaultVal)
+	return defaultVal
+}
+
+// parseHTTPDurations 一次性解析所有 HTTP duration 字串為 time.Duration。
+func (h *HTTPConfig) parseHTTPDurations() {
+	h.timeout = parseDurationWithDefault(h.Timeout, 30*time.Second, "HTTP 超時時間")
+	h.idleConnTimeout = parseDurationWithDefault(h.IdleConnTimeout, 90*time.Second, "空閒連線超時時間")
+	h.tlsHandshakeTimeout = parseDurationWithDefault(h.TLSHandshakeTimeout, 10*time.Second, "TLS 握手超時時間")
+	h.expectContinueTimeout = parseDurationWithDefault(h.ExpectContinueTimeout, 1*time.Second, "Expect Continue 超時時間")
+	h.parsed = true
 }
 
 // DefaultConfig 返回預設配置，包含適合一般使用場景的參數設定.
 // 這些預設值經過測試，能在大多數環境下穩定運行.
 func DefaultConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		Crawler: CrawlerConfig{
 			Workers:     10,
 			ParserCount: 10,
@@ -74,6 +100,8 @@ func DefaultConfig() *Config {
 			},
 		},
 	}
+	cfg.Crawler.HTTP.parseHTTPDurations()
+	return cfg
 }
 
 // Load 載入配置檔案，支援自動降級機制.
@@ -102,19 +130,25 @@ func Load(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("解析配置檔案失敗: %w", err)
 	}
 
+	// 一次性解析所有 duration 字串
+	config.Crawler.HTTP.parseHTTPDurations()
+
 	log.Printf("成功載入配置檔案: %s", configPath)
 	return config, nil
 }
 
-// GetTimeoutDuration 獲取 HTTP 請求超時時間.
-// 解析配置中的超時字符串，如果解析失敗則返回預設的 30 秒.
-func (c *Config) GetTimeoutDuration() time.Duration {
-	duration, err := time.ParseDuration(c.Crawler.HTTP.Timeout)
-	if err != nil {
-		log.Printf("解析超時時間失敗，使用預設值 30s: %v", err)
-		return 30 * time.Second
+// ensureParsed 確保 HTTP duration 已被解析。
+// 支援直接建構 Config 結構體（不經過 Load）的使用場景。
+func (c *Config) ensureParsed() {
+	if !c.Crawler.HTTP.parsed {
+		c.Crawler.HTTP.parseHTTPDurations()
 	}
-	return duration
+}
+
+// GetTimeoutDuration 獲取已解析的 HTTP 請求超時時間.
+func (c *Config) GetTimeoutDuration() time.Duration {
+	c.ensureParsed()
+	return c.Crawler.HTTP.timeout
 }
 
 // GetDelayRange 獲取延遲範圍，用於隨機延遲計算.
@@ -125,35 +159,20 @@ func (c *Config) GetDelayRange() (time.Duration, time.Duration) {
 	return minDelay, maxDelay
 }
 
-// GetIdleConnTimeout 獲取空閒連線超時時間.
-// 解析配置中的空閒連線超時字符串，如果解析失敗則返回預設的 90 秒.
+// GetIdleConnTimeout 獲取已解析的空閒連線超時時間.
 func (c *Config) GetIdleConnTimeout() time.Duration {
-	duration, err := time.ParseDuration(c.Crawler.HTTP.IdleConnTimeout)
-	if err != nil {
-		log.Printf("解析空閒連線超時時間失敗，使用預設值 90s: %v", err)
-		return 90 * time.Second
-	}
-	return duration
+	c.ensureParsed()
+	return c.Crawler.HTTP.idleConnTimeout
 }
 
-// GetTLSHandshakeTimeout 獲取 TLS 握手超時時間.
-// 解析配置中的 TLS 握手超時字符串，如果解析失敗則返回預設的 10 秒.
+// GetTLSHandshakeTimeout 獲取已解析的 TLS 握手超時時間.
 func (c *Config) GetTLSHandshakeTimeout() time.Duration {
-	duration, err := time.ParseDuration(c.Crawler.HTTP.TLSHandshakeTimeout)
-	if err != nil {
-		log.Printf("解析 TLS 握手超時時間失敗，使用預設值 10s: %v", err)
-		return 10 * time.Second
-	}
-	return duration
+	c.ensureParsed()
+	return c.Crawler.HTTP.tlsHandshakeTimeout
 }
 
-// GetExpectContinueTimeout 獲取 Expect: 100-continue 超時時間.
-// 解析配置中的 Expect 超時字符串，如果解析失敗則返回預設的 1 秒.
+// GetExpectContinueTimeout 獲取已解析的 Expect: 100-continue 超時時間.
 func (c *Config) GetExpectContinueTimeout() time.Duration {
-	duration, err := time.ParseDuration(c.Crawler.HTTP.ExpectContinueTimeout)
-	if err != nil {
-		log.Printf("解析 Expect Continue 超時時間失敗，使用預設值 1s: %v", err)
-		return 1 * time.Second
-	}
-	return duration
+	c.ensureParsed()
+	return c.Crawler.HTTP.expectContinueTimeout
 }
