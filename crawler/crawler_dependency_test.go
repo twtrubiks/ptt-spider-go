@@ -306,8 +306,8 @@ func TestCrawler_MarkdownWorkerWithMocks(t *testing.T) {
 	markdownChan <- testInfo2
 	close(markdownChan)
 
-	// Wait for processing
-	time.Sleep(500 * time.Millisecond)
+	// Wait for worker to finish (replaces flaky time.Sleep)
+	wg.Wait()
 
 	// Check results
 	if len(generatedInfos) != 2 {
