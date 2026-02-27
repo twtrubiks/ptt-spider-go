@@ -17,6 +17,7 @@ type Optimizer struct {
 	memoryThreshold int64 // 記憶體閾值 (MB)
 	gcInterval      time.Duration
 	stopChan        chan struct{}
+	stopOnce        sync.Once
 	mu              sync.RWMutex
 }
 
@@ -31,10 +32,10 @@ func NewOptimizer(memoryThresholdMB int64, gcInterval time.Duration) *Optimizer 
 
 // Start 啟動效能監控和優化
 func (o *Optimizer) Start(ctx context.Context) {
-	ticker := time.NewTicker(o.gcInterval)
-	defer ticker.Stop()
-
 	go func() {
+		ticker := time.NewTicker(o.gcInterval)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -50,7 +51,9 @@ func (o *Optimizer) Start(ctx context.Context) {
 
 // Stop 停止效能監控
 func (o *Optimizer) Stop() {
-	close(o.stopChan)
+	o.stopOnce.Do(func() {
+		close(o.stopChan)
+	})
 }
 
 // optimizeMemory 記憶體優化

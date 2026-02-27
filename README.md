@@ -627,6 +627,7 @@ go tool cover -html=coverage.out -o coverage.html
 - **config**: 94.6% (config_test.go - 配置載入測試)
 - **errors**: 94.4% (errors_test.go - 錯誤處理測試)
 - **interfaces**: 92.1% (interfaces_test.go - 介面測試)
+- **performance**: 100% (optimizer_test.go - 效能優化器測試)
 
 ### Mock 測試框架
 
