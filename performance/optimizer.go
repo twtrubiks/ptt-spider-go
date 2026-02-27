@@ -1,39 +1,36 @@
-// Package performance 提供效能優化工具，
-// 包括記憶體監控、自動垃圾回收和 HTTP 連線池配置。
+// Package performance 提供效能監控工具，
+// 包括記憶體狀態監控和統計資訊。
 package performance
 
 import (
 	"context"
 	"fmt"
-	"net/http"
+	"log"
 	"runtime"
-	"runtime/debug"
 	"sync"
 	"time"
 )
 
-// Optimizer 效能優化器
+// Optimizer 效能監控器
 type Optimizer struct {
-	memoryThreshold int64 // 記憶體閾值 (MB)
-	gcInterval      time.Duration
+	monitorInterval time.Duration
 	stopChan        chan struct{}
 	stopOnce        sync.Once
-	mu              sync.RWMutex
 }
 
-// NewOptimizer 建立新的效能優化器
-func NewOptimizer(memoryThresholdMB int64, gcInterval time.Duration) *Optimizer {
+// NewOptimizer 建立新的效能監控器
+// memoryThresholdMB 參數已棄用，保留以維持 API 相容性。
+func NewOptimizer(_ int64, monitorInterval time.Duration) *Optimizer {
 	return &Optimizer{
-		memoryThreshold: memoryThresholdMB * 1024 * 1024, // 轉換為 bytes
-		gcInterval:      gcInterval,
+		monitorInterval: monitorInterval,
 		stopChan:        make(chan struct{}),
 	}
 }
 
-// Start 啟動效能監控和優化
+// Start 啟動效能監控
 func (o *Optimizer) Start(ctx context.Context) {
 	go func() {
-		ticker := time.NewTicker(o.gcInterval)
+		ticker := time.NewTicker(o.monitorInterval)
 		defer ticker.Stop()
 
 		for {
@@ -43,7 +40,8 @@ func (o *Optimizer) Start(ctx context.Context) {
 			case <-o.stopChan:
 				return
 			case <-ticker.C:
-				o.optimizeMemory()
+				stats := o.GetMemoryStats()
+				log.Printf("記憶體監控: %s", stats.String())
 			}
 		}
 	}()
@@ -56,26 +54,8 @@ func (o *Optimizer) Stop() {
 	})
 }
 
-// optimizeMemory 記憶體優化
-func (o *Optimizer) optimizeMemory() {
-	o.mu.Lock()
-	defer o.mu.Unlock()
-
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-
-	// 如果記憶體使用超過閾值，執行 GC
-	if int64(m.Alloc) > o.memoryThreshold {
-		runtime.GC()
-		debug.FreeOSMemory()
-	}
-}
-
 // GetMemoryStats 獲取記憶體統計資訊
 func (o *Optimizer) GetMemoryStats() MemoryStats {
-	o.mu.RLock()
-	defer o.mu.RUnlock()
-
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
@@ -130,32 +110,4 @@ func formatBytes(bytes uint64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
-// ConnectionPool 連線池管理
-type ConnectionPool struct {
-	maxIdleConns        int
-	maxIdleConnsPerHost int
-	idleConnTimeout     time.Duration
-	tlsHandshakeTimeout time.Duration
-}
-
-// NewConnectionPool 建立新的連線池配置
-func NewConnectionPool(maxIdle, maxIdlePerHost int, idleTimeout, tlsTimeout time.Duration) *ConnectionPool {
-	return &ConnectionPool{
-		maxIdleConns:        maxIdle,
-		maxIdleConnsPerHost: maxIdlePerHost,
-		idleConnTimeout:     idleTimeout,
-		tlsHandshakeTimeout: tlsTimeout,
-	}
-}
-
-// OptimizeTransport 優化 HTTP Transport
-func (cp *ConnectionPool) OptimizeTransport(transport *http.Transport) {
-	transport.MaxIdleConns = cp.maxIdleConns
-	transport.MaxIdleConnsPerHost = cp.maxIdleConnsPerHost
-	transport.IdleConnTimeout = cp.idleConnTimeout
-	transport.TLSHandshakeTimeout = cp.tlsHandshakeTimeout
-	transport.DisableKeepAlives = false
-	transport.DisableCompression = false
 }

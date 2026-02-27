@@ -3,7 +3,6 @@ package performance
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 )
@@ -13,11 +12,8 @@ func TestNewOptimizer(t *testing.T) {
 	if opt == nil {
 		t.Fatal("NewOptimizer returned nil")
 	}
-	if opt.memoryThreshold != 100*1024*1024 {
-		t.Errorf("memoryThreshold = %d, want %d", opt.memoryThreshold, 100*1024*1024)
-	}
-	if opt.gcInterval != 5*time.Second {
-		t.Errorf("gcInterval = %v, want %v", opt.gcInterval, 5*time.Second)
+	if opt.monitorInterval != 5*time.Second {
+		t.Errorf("monitorInterval = %v, want %v", opt.monitorInterval, 5*time.Second)
 	}
 }
 
@@ -58,8 +54,7 @@ func TestOptimizer_StartContextCancel(t *testing.T) {
 	time.Sleep(80 * time.Millisecond)
 }
 
-func TestOptimizer_TickerRunsInsideGoroutine(t *testing.T) {
-	// threshold=0 確保每次都觸發 GC
+func TestOptimizer_MonitorLogsMemory(t *testing.T) {
 	opt := NewOptimizer(0, 30*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -71,7 +66,7 @@ func TestOptimizer_TickerRunsInsideGoroutine(t *testing.T) {
 	time.Sleep(150 * time.Millisecond)
 	opt.Stop()
 
-	// 如果 ticker 正常運作 (C-3 修復後)，透過 GetMemoryStats 間接確認
+	// 透過 GetMemoryStats 確認可正常取得資訊
 	stats := opt.GetMemoryStats()
 	if stats.Alloc == 0 {
 		t.Error("expected non-zero memory allocation")
@@ -127,44 +122,4 @@ func TestFormatBytes(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestNewConnectionPool(t *testing.T) {
-	cp := NewConnectionPool(100, 10, 90*time.Second, 10*time.Second)
-	if cp == nil {
-		t.Fatal("NewConnectionPool returned nil")
-	}
-	if cp.maxIdleConns != 100 {
-		t.Errorf("maxIdleConns = %d, want 100", cp.maxIdleConns)
-	}
-	if cp.maxIdleConnsPerHost != 10 {
-		t.Errorf("maxIdleConnsPerHost = %d, want 10", cp.maxIdleConnsPerHost)
-	}
-}
-
-func TestOptimizeTransport(t *testing.T) {
-	cp := NewConnectionPool(100, 10, 90*time.Second, 10*time.Second)
-	transport := &http.Transport{}
-
-	cp.OptimizeTransport(transport)
-
-	if transport.MaxIdleConns != 100 {
-		t.Errorf("MaxIdleConns = %d, want 100", transport.MaxIdleConns)
-	}
-	if transport.MaxIdleConnsPerHost != 10 {
-		t.Errorf("MaxIdleConnsPerHost = %d, want 10", transport.MaxIdleConnsPerHost)
-	}
-	if transport.IdleConnTimeout != 90*time.Second {
-		t.Errorf("IdleConnTimeout = %v, want %v", transport.IdleConnTimeout, 90*time.Second)
-	}
-	if transport.TLSHandshakeTimeout != 10*time.Second {
-		t.Errorf("TLSHandshakeTimeout = %v, want %v", transport.TLSHandshakeTimeout, 10*time.Second)
-	}
-}
-
-func TestOptimizeMemory(t *testing.T) {
-	// threshold 設為 0 確保會觸發 GC
-	opt := NewOptimizer(0, time.Second)
-	// 不應 panic
-	opt.optimizeMemory()
 }
