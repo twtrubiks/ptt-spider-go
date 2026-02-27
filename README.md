@@ -237,20 +237,19 @@ ptt-spider-go/
 │   └── crawler_dependency_test.go # 依賴注入測試
 ├── ptt/                   # PTT 網站功能
 │   ├── client.go          # HTTP 客戶端管理
-│   ├── parser.go          # HTML 解析器介面
-│   ├── parser_impl.go     # 解析器實現
+│   ├── parser_impl.go     # 解析器實現 (Parser 介面)
 │   ├── parser_impl_test.go # 解析器測試
 │   └── ptt_test.go        # 整合測試
 ├── markdown/              # Markdown 生成功能
-│   ├── generator.go       # Markdown 生成器介面
-│   ├── generator_impl.go  # 生成器實現
+│   ├── generator_impl.go  # 生成器實現 (MarkdownGenerator 介面)
 │   ├── generator_impl_test.go # 生成器測試
 │   └── markdown_test.go   # Markdown 測試
 ├── mocks/                 # Mock 測試框架
 │   ├── mocks.go          # Mock 物件定義
 │   └── mocks_test.go     # Mock 測試
 ├── performance/           # 效能監控優化
-│   └── optimizer.go      # 記憶體監控、連線池優化
+│   ├── optimizer.go      # 記憶體監控、連線池優化
+│   └── optimizer_test.go # 效能優化器測試
 ├── types/                 # 資料結構定義
 │   ├── types.go          # 核心資料結構
 │   └── types_test.go     # 類型測試

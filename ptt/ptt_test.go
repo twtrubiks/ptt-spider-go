@@ -82,7 +82,7 @@ func TestParseArticles(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := strings.NewReader(tt.html)
-			articles, err := ParseArticles(reader)
+			articles, err := (&ParserImpl{}).ParseArticles(reader)
 			if (err != nil) != tt.expectErr {
 				t.Errorf("ParseArticles() error = %v, expectErr %v", err, tt.expectErr)
 				return
@@ -136,7 +136,7 @@ func TestParseArticleContent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			html := loadFixture(t, tt.fixtureFile)
 			reader := strings.NewReader(html)
-			title, imgURLs, err := ParseArticleContent(reader)
+			title, imgURLs, err := (&ParserImpl{}).ParseArticleContent(reader)
 
 			if (err != nil) != tt.expectErr {
 				t.Errorf("ParseArticleContent() error = %v, expectErr %v", err, tt.expectErr)

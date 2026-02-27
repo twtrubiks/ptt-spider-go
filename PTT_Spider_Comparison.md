@@ -168,12 +168,10 @@ ptt-spider-go/
 │   └── crawler_dependency_test.go # 依賴注入測試
 ├── ptt/                    # PTT 網站功能
 │   ├── client.go          # HTTP 客戶端
-│   ├── parser.go          # 解析函數實現
 │   ├── parser_impl.go     # Parser 介面實現
 │   ├── parser_impl_test.go # 解析器實現測試
 │   └── ptt_test.go        # PTT 模組測試
 ├── markdown/               # Markdown 生成
-│   ├── generator.go       # Generate 函數實現
 │   ├── generator_impl.go  # MarkdownGenerator 介面實現
 │   ├── generator_impl_test.go # 生成器測試
 │   └── markdown_test.go   # Markdown 測試
@@ -181,7 +179,8 @@ ptt-spider-go/
 │   ├── mocks.go           # Mock 實現
 │   └── mocks_test.go      # Mock 測試
 ├── performance/            # 效能監控優化
-│   └── optimizer.go       # 效能優化器
+│   ├── optimizer.go       # 效能優化器
+│   └── optimizer_test.go  # 效能優化器測試
 ├── config/                 # 配置管理
 │   ├── config.go          # 配置結構定義
 │   └── config_test.go     # 配置測試

@@ -158,7 +158,7 @@ func runTestCase(t *testing.T, tt struct {
 	tmpDir := t.TempDir()
 	tt.info.SaveDir = tmpDir
 
-	err := Generate(tt.info)
+	err := (&GeneratorImpl{}).Generate(tt.info)
 	if (err != nil) != tt.wantErr {
 		t.Errorf("Generate() error = %v, wantErr %v", err, tt.wantErr)
 		return
@@ -191,7 +191,7 @@ func TestGenerateDirectoryCreation(t *testing.T) {
 		SaveDir:    nestedDir,
 	}
 
-	err := Generate(info)
+	err := (&GeneratorImpl{}).Generate(info)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestGenerateFilePermissions(t *testing.T) {
 		SaveDir:    tmpDir,
 	}
 
-	err := Generate(info)
+	err := (&GeneratorImpl{}).Generate(info)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestGenerateErrorHandling(t *testing.T) {
 			SaveDir:    "/root/invalid/path/that/should/not/be/writable",
 		}
 
-		err := Generate(info)
+		err := (&GeneratorImpl{}).Generate(info)
 		if err == nil {
 			t.Error("Generate() should fail with invalid directory path")
 			return
@@ -294,7 +294,7 @@ func TestGenerateContentFormat(t *testing.T) {
 		SaveDir: tmpDir,
 	}
 
-	err := Generate(info)
+	err := (&GeneratorImpl{}).Generate(info)
 	if err != nil {
 		t.Fatalf("Generate() failed: %v", err)
 	}

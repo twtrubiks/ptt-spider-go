@@ -73,8 +73,9 @@ func TestIntegrationMarkdownGeneration(t *testing.T) {
 		SaveDir: tmpDir,
 	}
 
-	// Test markdown generation
-	err := markdown.Generate(info)
+	// Test markdown generation using interface implementation
+	generator := markdown.NewGenerator()
+	err := generator.Generate(info)
 	if err != nil {
 		t.Fatalf("Failed to generate markdown: %v", err)
 	}
