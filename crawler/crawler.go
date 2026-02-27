@@ -65,15 +65,15 @@ type Workers struct {
 // Crawler 結構體包含爬蟲的所有狀態和配置.
 // 支援看板模式和檔案模式兩種爬取方式.
 type Crawler struct {
-	Client            interfaces.HTTPClient        // HTTP 客戶端，用於發送請求
-	Parser            interfaces.Parser            // HTML 解析器
-	MarkdownGenerator interfaces.MarkdownGenerator // Markdown 生成器
-	Optimizer         *performance.Optimizer       // 效能優化器
-	Board             string                       // 看板名稱（看板模式時使用）
-	Pages             int                          // 要爬取的頁數
-	PushRate          int                          // 推文數門檻
-	FileURL           string                       // 檔案路徑（檔案模式時使用）
-	Config            *config.Config               // 配置物件
+	client            interfaces.HTTPClient        // HTTP 客戶端，用於發送請求
+	parser            interfaces.Parser            // HTML 解析器
+	markdownGenerator interfaces.MarkdownGenerator // Markdown 生成器
+	optimizer         *performance.Optimizer       // 效能優化器
+	board             string                       // 看板名稱（看板模式時使用）
+	pages             int                          // 要爬取的頁數
+	pushRate          int                          // 推文數門檻
+	fileURL           string                       // 檔案路徑（檔案模式時使用）
+	config            *config.Config               // 配置物件
 }
 
 // NewCrawler 建立一個新的 Crawler 實例.
@@ -93,15 +93,15 @@ func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.C
 	optimizer := performance.NewOptimizer(100, 30*time.Second)
 
 	return &Crawler{
-		Client:            client,
-		Parser:            ptt.NewParser(),
-		MarkdownGenerator: markdown.NewGenerator(),
-		Optimizer:         optimizer,
-		Board:             board,
-		Pages:             pages,
-		PushRate:          pushRate,
-		FileURL:           fileURL,
-		Config:            cfg,
+		client:            client,
+		parser:            ptt.NewParser(),
+		markdownGenerator: markdown.NewGenerator(),
+		optimizer:         optimizer,
+		board:             board,
+		pages:             pages,
+		pushRate:          pushRate,
+		fileURL:           fileURL,
+		config:            cfg,
 	}, nil
 }
 
@@ -119,24 +119,24 @@ func NewCrawlerWithDependencies(
 	optimizer := performance.NewOptimizer(100, 30*time.Second)
 
 	return &Crawler{
-		Client:            client,
-		Parser:            parser,
-		MarkdownGenerator: markdownGen,
-		Optimizer:         optimizer,
-		Board:             board,
-		Pages:             pages,
-		PushRate:          pushRate,
-		FileURL:           fileURL,
-		Config:            cfg,
+		client:            client,
+		parser:            parser,
+		markdownGenerator: markdownGen,
+		optimizer:         optimizer,
+		board:             board,
+		pages:             pages,
+		pushRate:          pushRate,
+		fileURL:           fileURL,
+		config:            cfg,
 	}
 }
 
 // initializeChannels 初始化所有工人使用的 channels
 func (c *Crawler) initializeChannels() *WorkerChannels {
 	return &WorkerChannels{
-		ArticleInfo:  make(chan types.ArticleInfo, c.Config.Crawler.Channels.ArticleInfo),
-		DownloadTask: make(chan types.DownloadTask, c.Config.Crawler.Channels.DownloadTask),
-		MarkdownTask: make(chan types.MarkdownInfo, c.Config.Crawler.Channels.MarkdownTask),
+		ArticleInfo:  make(chan types.ArticleInfo, c.config.Crawler.Channels.ArticleInfo),
+		DownloadTask: make(chan types.DownloadTask, c.config.Crawler.Channels.DownloadTask),
+		MarkdownTask: make(chan types.MarkdownInfo, c.config.Crawler.Channels.MarkdownTask),
 	}
 }
 
@@ -145,7 +145,7 @@ func (c *Crawler) startWorkers(ctx context.Context, channels *WorkerChannels) *W
 	var parsersWg, downloadersWg, markdownWg sync.WaitGroup
 
 	// 啟動下載工人池
-	numWorkers := c.Config.Crawler.Workers
+	numWorkers := c.config.Crawler.Workers
 	downloadersWg.Add(numWorkers)
 	for i := 1; i <= numWorkers; i++ {
 		go c.downloadWorker(ctx, i, channels.DownloadTask, &downloadersWg)
@@ -156,7 +156,7 @@ func (c *Crawler) startWorkers(ctx context.Context, channels *WorkerChannels) *W
 	go c.markdownWorker(ctx, channels.MarkdownTask, &markdownWg)
 
 	// 啟動內容解析器
-	parserCount := c.Config.Crawler.ParserCount
+	parserCount := c.config.Crawler.ParserCount
 	parsersWg.Add(parserCount)
 	for i := 0; i < parserCount; i++ {
 		go c.contentParser(ctx, &parsersWg, channels.ArticleInfo, channels.DownloadTask, channels.MarkdownTask)
@@ -171,7 +171,7 @@ func (c *Crawler) startWorkers(ctx context.Context, channels *WorkerChannels) *W
 
 // startProducer 根據模式啟動相應的生產者
 func (c *Crawler) startProducer(ctx context.Context, articleChan chan<- types.ArticleInfo) {
-	if c.FileURL != "" {
+	if c.fileURL != "" {
 		c.articleProducerFromFile(ctx, articleChan)
 	} else {
 		c.articleProducer(ctx, articleChan)
@@ -203,8 +203,8 @@ func (c *Crawler) logCompletion(ctx context.Context, startTime time.Time) {
 	}
 
 	// 記錄最終記憶體狀態
-	if c.Optimizer != nil {
-		finalStats := c.Optimizer.GetMemoryStats()
+	if c.optimizer != nil {
+		finalStats := c.optimizer.GetMemoryStats()
 		log.Printf("最終記憶體狀態: %s", finalStats.String())
 	}
 }
@@ -223,12 +223,12 @@ func (c *Crawler) Run(ctx context.Context) {
 	log.Println("爬蟲啟動...")
 
 	// 啟動效能監控
-	if c.Optimizer != nil {
-		c.Optimizer.Start(ctx)
-		defer c.Optimizer.Stop()
+	if c.optimizer != nil {
+		c.optimizer.Start(ctx)
+		defer c.optimizer.Stop()
 
 		// 記錄初始記憶體狀態
-		initialStats := c.Optimizer.GetMemoryStats()
+		initialStats := c.optimizer.GetMemoryStats()
 		log.Printf("初始記憶體狀態: %s", initialStats.String())
 	}
 
@@ -250,7 +250,7 @@ func (c *Crawler) Run(ctx context.Context) {
 func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- types.ArticleInfo) {
 	defer close(articleInfoChan)
 
-	maxPage, err := c.Parser.GetMaxPage(ctx, c.Client, c.Board)
+	maxPage, err := c.parser.GetMaxPage(ctx, c.client, c.board)
 	if err != nil {
 		if ctx.Err() != nil {
 			log.Printf("獲取最大頁數時被中斷: %v", ctx.Err())
@@ -260,9 +260,9 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 		return
 	}
 
-	log.Printf("看板 %s 最大頁數為: %d", c.Board, maxPage)
+	log.Printf("看板 %s 最大頁數為: %d", c.board, maxPage)
 
-	for i := 0; i < c.Pages; i++ {
+	for i := 0; i < c.pages; i++ {
 		// 檢查 context 是否已取消
 		select {
 		case <-ctx.Done():
@@ -272,7 +272,7 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 		}
 
 		currentPage := maxPage - i
-		pageURL := fmt.Sprintf("%s/bbs/%s/index%d.html", constants.PttBaseURL, c.Board, currentPage)
+		pageURL := fmt.Sprintf("%s/bbs/%s/index%d.html", constants.PttBaseURL, c.board, currentPage)
 		log.Printf("正在爬取看板列表: %s", pageURL)
 
 		req, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
@@ -281,7 +281,7 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 			continue
 		}
 
-		resp, err := c.Client.Do(req)
+		resp, err := c.client.Do(req)
 		if err != nil {
 			if ctx.Err() != nil {
 				log.Println("列表頁爬取被中斷")
@@ -291,7 +291,7 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 			continue
 		}
 
-		articles, err := c.Parser.ParseArticles(resp.Body)
+		articles, err := c.parser.ParseArticles(resp.Body)
 		closeWithLog(resp.Body, "回應 Body")
 		if err != nil {
 			log.Printf("解析列表頁失敗: %s, 錯誤: %v", pageURL, err)
@@ -299,7 +299,7 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 		}
 
 		for _, article := range articles {
-			if article.PushRate >= c.PushRate {
+			if article.PushRate >= c.pushRate {
 				select {
 				case <-ctx.Done():
 					log.Println("文章列表發送被中斷")
@@ -360,7 +360,7 @@ func (c *Crawler) getLogMessage(article types.ArticleInfo) string {
 
 // shouldStop 檢查是否應該停止，並處理延遲
 func (c *Crawler) shouldStop(ctx context.Context, msg string) bool {
-	minDelay, maxDelay := c.Config.GetDelayRange()
+	minDelay, maxDelay := c.config.GetDelayRange()
 	delay := randomDelay(minDelay, maxDelay)
 
 	select {
@@ -380,7 +380,7 @@ func (c *Crawler) fetchAndParseArticle(ctx context.Context, article types.Articl
 		return "", nil, err
 	}
 
-	resp, err := c.Client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
 			log.Println("文章爬取被中斷")
@@ -391,7 +391,7 @@ func (c *Crawler) fetchAndParseArticle(ctx context.Context, article types.Articl
 	}
 	defer closeWithLog(resp.Body, "回應 Body")
 
-	parsedTitle, imgURLs, err := c.Parser.ParseArticleContent(resp.Body)
+	parsedTitle, imgURLs, err := c.parser.ParseArticleContent(resp.Body)
 	if err != nil {
 		log.Printf("解析文章頁失敗: %s, 錯誤: %v", article.URL, err)
 		return "", nil, err
@@ -403,7 +403,7 @@ func (c *Crawler) fetchAndParseArticle(ctx context.Context, article types.Articl
 // determineFinalTitle 決定最終使用的標題
 func (c *Crawler) determineFinalTitle(article types.ArticleInfo, parsedTitle string) string {
 	finalTitle := article.Title
-	if (c.FileURL != "" && parsedTitle != "") || (finalTitle == "" && parsedTitle != "") {
+	if (c.fileURL != "" && parsedTitle != "") || (finalTitle == "" && parsedTitle != "") {
 		finalTitle = parsedTitle
 	}
 	return finalTitle
@@ -412,7 +412,7 @@ func (c *Crawler) determineFinalTitle(article types.ArticleInfo, parsedTitle str
 // dispatchTasks 分派下載和 Markdown 任務
 func (c *Crawler) dispatchTasks(ctx context.Context, finalTitle string, article types.ArticleInfo, imgURLs []string, downloadTaskChan chan<- types.DownloadTask, markdownTaskChan chan<- types.MarkdownInfo) {
 	dirName := fmt.Sprintf("%s_%d", cleanFileName(finalTitle), article.PushRate)
-	saveDir := filepath.Join(c.Board, dirName)
+	saveDir := filepath.Join(c.board, dirName)
 
 	// 分派下載任務
 	for _, imgURL := range imgURLs {
@@ -483,7 +483,7 @@ func (c *Crawler) markdownWorker(ctx context.Context, tasks <-chan types.Markdow
 				return
 			}
 			log.Printf("正在為文章「%s」產生 Markdown 檔案", task.Title)
-			if err := c.MarkdownGenerator.Generate(task); err != nil {
+			if err := c.markdownGenerator.Generate(task); err != nil {
 				log.Printf("產生 Markdown 失敗: %v", err)
 			}
 		}
@@ -503,7 +503,7 @@ func (c *Crawler) fetchImage(ctx context.Context, id int, imageURL string) *http
 		return nil
 	}
 
-	resp, err := c.Client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
 			log.Printf("下載工人 #%d 下載被中斷", id)
@@ -565,7 +565,7 @@ func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types
 				return
 			}
 
-			minDelay, maxDelay := c.Config.GetDelayRange()
+			minDelay, maxDelay := c.config.GetDelayRange()
 			delay := randomDelay(minDelay, maxDelay)
 			log.Printf("工人 #%d 延遲 %v 後下載: %s", id, delay, task.ImageURL)
 
@@ -588,7 +588,7 @@ func (c *Crawler) articleProducerFromFile(ctx context.Context, articleInfoChan c
 	defer close(articleInfoChan)
 	log.Println("啟動檔案模式...")
 
-	file, err := os.Open(c.FileURL)
+	file, err := os.Open(c.fileURL)
 	if err != nil {
 		log.Printf("開啟檔案失敗: %v", err)
 		return

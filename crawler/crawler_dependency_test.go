@@ -45,23 +45,23 @@ func TestNewCrawlerWithDependencies(t *testing.T) {
 	)
 
 	// Verify all fields are set correctly
-	if crawler.Client != mockClient {
+	if crawler.client != mockClient {
 		t.Error("Client should be set to mock client")
 	}
-	if crawler.Parser != mockParser {
+	if crawler.parser != mockParser {
 		t.Error("Parser should be set to mock parser")
 	}
-	if crawler.MarkdownGenerator != mockMarkdownGen {
+	if crawler.markdownGenerator != mockMarkdownGen {
 		t.Error("MarkdownGenerator should be set to mock generator")
 	}
-	if crawler.Board != "testboard" {
-		t.Errorf("Board = %s, want testboard", crawler.Board)
+	if crawler.board != "testboard" {
+		t.Errorf("Board = %s, want testboard", crawler.board)
 	}
-	if crawler.Pages != 3 {
-		t.Errorf("Pages = %d, want 3", crawler.Pages)
+	if crawler.pages != 3 {
+		t.Errorf("Pages = %d, want 3", crawler.pages)
 	}
-	if crawler.PushRate != 10 {
-		t.Errorf("PushRate = %d, want 10", crawler.PushRate)
+	if crawler.pushRate != 10 {
+		t.Errorf("PushRate = %d, want 10", crawler.pushRate)
 	}
 }
 
@@ -76,7 +76,7 @@ func TestCrawler_InitializeChannels(t *testing.T) {
 		},
 	}
 
-	crawler := &Crawler{Config: cfg}
+	crawler := &Crawler{config: cfg}
 	channels := crawler.initializeChannels()
 
 	// Check channel capacities

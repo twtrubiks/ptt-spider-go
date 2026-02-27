@@ -60,22 +60,22 @@ func TestNewCrawler(t *testing.T) {
 					t.Error("NewCrawler() returned nil crawler")
 					return
 				}
-				if crawler.Board != tt.board {
-					t.Errorf("Expected board %s, got %s", tt.board, crawler.Board)
+				if crawler.board != tt.board {
+					t.Errorf("Expected board %s, got %s", tt.board, crawler.board)
 				}
-				if crawler.Pages != tt.pages {
-					t.Errorf("Expected pages %d, got %d", tt.pages, crawler.Pages)
+				if crawler.pages != tt.pages {
+					t.Errorf("Expected pages %d, got %d", tt.pages, crawler.pages)
 				}
-				if crawler.PushRate != tt.pushRate {
-					t.Errorf("Expected pushRate %d, got %d", tt.pushRate, crawler.PushRate)
+				if crawler.pushRate != tt.pushRate {
+					t.Errorf("Expected pushRate %d, got %d", tt.pushRate, crawler.pushRate)
 				}
-				if crawler.FileURL != tt.fileURL {
-					t.Errorf("Expected fileURL %s, got %s", tt.fileURL, crawler.FileURL)
+				if crawler.fileURL != tt.fileURL {
+					t.Errorf("Expected fileURL %s, got %s", tt.fileURL, crawler.fileURL)
 				}
-				if crawler.Client == nil {
+				if crawler.client == nil {
 					t.Error("Crawler should have HTTP client")
 				}
-				if crawler.Config == nil {
+				if crawler.config == nil {
 					t.Error("Crawler should have config")
 				}
 			}
@@ -207,8 +207,8 @@ func TestCrawlerFileMode(t *testing.T) {
 	}
 
 	// Test file mode initialization
-	if crawler.FileURL != testFile {
-		t.Errorf("Expected FileURL %s, got %s", testFile, crawler.FileURL)
+	if crawler.fileURL != testFile {
+		t.Errorf("Expected FileURL %s, got %s", testFile, crawler.fileURL)
 	}
 
 	// Test with short timeout to avoid long running test
@@ -251,15 +251,15 @@ func TestCrawlerConfigValidation(t *testing.T) {
 	}
 
 	// Verify configuration is properly set
-	if crawler.Config.Crawler.Workers != 5 {
-		t.Errorf("Expected workers 5, got %d", crawler.Config.Crawler.Workers)
+	if crawler.config.Crawler.Workers != 5 {
+		t.Errorf("Expected workers 5, got %d", crawler.config.Crawler.Workers)
 	}
-	if crawler.Config.Crawler.ParserCount != 3 {
-		t.Errorf("Expected parserCount 3, got %d", crawler.Config.Crawler.ParserCount)
+	if crawler.config.Crawler.ParserCount != 3 {
+		t.Errorf("Expected parserCount 3, got %d", crawler.config.Crawler.ParserCount)
 	}
 
 	// Test delay range
-	minDelay, maxDelay := crawler.Config.GetDelayRange()
+	minDelay, maxDelay := crawler.config.GetDelayRange()
 	expectedMin := 1000 * time.Millisecond
 	expectedMax := 2000 * time.Millisecond
 
@@ -330,13 +330,13 @@ func TestCrawlerChannelBuffers(t *testing.T) {
 	}
 
 	// Test that crawler can be created and configured properly
-	if crawler.Config.Crawler.Channels.ArticleInfo != 10 {
-		t.Errorf("Expected ArticleInfo channel buffer 10, got %d", crawler.Config.Crawler.Channels.ArticleInfo)
+	if crawler.config.Crawler.Channels.ArticleInfo != 10 {
+		t.Errorf("Expected ArticleInfo channel buffer 10, got %d", crawler.config.Crawler.Channels.ArticleInfo)
 	}
-	if crawler.Config.Crawler.Channels.DownloadTask != 20 {
-		t.Errorf("Expected DownloadTask channel buffer 20, got %d", crawler.Config.Crawler.Channels.DownloadTask)
+	if crawler.config.Crawler.Channels.DownloadTask != 20 {
+		t.Errorf("Expected DownloadTask channel buffer 20, got %d", crawler.config.Crawler.Channels.DownloadTask)
 	}
-	if crawler.Config.Crawler.Channels.MarkdownTask != 5 {
-		t.Errorf("Expected MarkdownTask channel buffer 5, got %d", crawler.Config.Crawler.Channels.MarkdownTask)
+	if crawler.config.Crawler.Channels.MarkdownTask != 5 {
+		t.Errorf("Expected MarkdownTask channel buffer 5, got %d", crawler.config.Crawler.Channels.MarkdownTask)
 	}
 }
