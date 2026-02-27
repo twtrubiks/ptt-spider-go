@@ -145,7 +145,7 @@ func (p *ParserImpl) GetMaxPage(ctx context.Context, client interfaces.HTTPClien
 	}
 
 	// 從 /bbs/Beauty/index2345.html 中提取 2345
-	parts := strings.Split(strings.Trim(prevPageURL, ".html"), "index")
+	parts := strings.Split(strings.TrimSuffix(prevPageURL, ".html"), "index")
 	if len(parts) < 2 {
 		return 0, errors.NewParseError("無法解析頁碼", nil)
 	}
