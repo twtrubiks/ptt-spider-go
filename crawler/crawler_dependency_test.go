@@ -365,3 +365,54 @@ func TestCrawler_ErrorHandling(t *testing.T) {
 		// Channel is closed, which is expected
 	}
 }
+
+func TestRandomDelay(t *testing.T) {
+	tests := []struct {
+		name     string
+		min      time.Duration
+		max      time.Duration
+		wantMin  time.Duration
+		wantMax  time.Duration
+	}{
+		{
+			name:    "equal min and max returns min",
+			min:     100 * time.Millisecond,
+			max:     100 * time.Millisecond,
+			wantMin: 100 * time.Millisecond,
+			wantMax: 100 * time.Millisecond,
+		},
+		{
+			name:    "min greater than max returns min",
+			min:     200 * time.Millisecond,
+			max:     100 * time.Millisecond,
+			wantMin: 200 * time.Millisecond,
+			wantMax: 200 * time.Millisecond,
+		},
+		{
+			name:    "normal range",
+			min:     100 * time.Millisecond,
+			max:     500 * time.Millisecond,
+			wantMin: 100 * time.Millisecond,
+			wantMax: 500 * time.Millisecond,
+		},
+		{
+			name:    "zero values",
+			min:     0,
+			max:     0,
+			wantMin: 0,
+			wantMax: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for range 20 {
+				got := randomDelay(tt.min, tt.max)
+				if got < tt.wantMin || got > tt.wantMax {
+					t.Errorf("randomDelay(%v, %v) = %v, want between %v and %v",
+						tt.min, tt.max, got, tt.wantMin, tt.wantMax)
+				}
+			}
+		})
+	}
+}

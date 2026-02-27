@@ -39,6 +39,15 @@ func closeWithLog(closer io.Closer, name string) {
 	}
 }
 
+// randomDelay 根據設定的延遲範圍回傳隨機延遲時間，當 min >= max 時直接回傳 min
+func randomDelay(minDelay, maxDelay time.Duration) time.Duration {
+	if maxDelay <= minDelay {
+		return minDelay
+	}
+	rangeMs := int((maxDelay - minDelay) / time.Millisecond)
+	return minDelay + time.Duration(rand.Intn(rangeMs))*time.Millisecond
+}
+
 // WorkerChannels 包含所有工人使用的 channels
 type WorkerChannels struct {
 	ArticleInfo  chan types.ArticleInfo
@@ -352,8 +361,7 @@ func (c *Crawler) getLogMessage(article types.ArticleInfo) string {
 // shouldStop 檢查是否應該停止，並處理延遲
 func (c *Crawler) shouldStop(ctx context.Context, msg string) bool {
 	minDelay, maxDelay := c.Config.GetDelayRange()
-	delayRange := int(maxDelay - minDelay)
-	delay := minDelay + time.Duration(rand.Intn(delayRange/int(time.Millisecond)))*time.Millisecond
+	delay := randomDelay(minDelay, maxDelay)
 
 	select {
 	case <-ctx.Done():
@@ -506,8 +514,7 @@ func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types
 			// *** 解決 429 Too Many Requests 的關鍵 ***
 			// 在每次下載前隨機延遲（使用配置值）
 			minDelay, maxDelay := c.Config.GetDelayRange()
-			delayRange := int(maxDelay - minDelay)
-			delay := minDelay + time.Duration(rand.Intn(delayRange/int(time.Millisecond)))*time.Millisecond
+			delay := randomDelay(minDelay, maxDelay)
 			log.Printf("工人 #%d 延遲 %v 後下載: %s", id, delay, task.ImageURL)
 
 			// 使用 select 來處理延遲，以便能響應 context 取消
