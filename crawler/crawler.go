@@ -495,6 +495,60 @@ func cleanFileName(name string) string {
 	return invalidChars.ReplaceAllString(name, "")
 }
 
+// fetchImage 下載圖片並檢查 HTTP 狀態碼，回傳回應或 nil（表示應跳過）
+func (c *Crawler) fetchImage(ctx context.Context, id int, imageURL string) *http.Response {
+	req, err := http.NewRequestWithContext(ctx, "GET", imageURL, nil)
+	if err != nil {
+		log.Printf("工人 #%d 建立請求失敗: %s, 錯誤: %v", id, imageURL, err)
+		return nil
+	}
+
+	resp, err := c.Client.Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			log.Printf("下載工人 #%d 下載被中斷", id)
+		} else {
+			log.Printf("工人 #%d 下載失敗 (GET): %s, 錯誤: %v", id, imageURL, err)
+		}
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusTooManyRequests {
+			log.Printf("工人 #%d 遇到 429 Too Many Requests，跳過此次下載: %s", id, imageURL)
+		} else {
+			log.Printf("工人 #%d 下載失敗 (狀態碼 %d): %s", id, resp.StatusCode, imageURL)
+		}
+		closeWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
+		return nil
+	}
+	return resp
+}
+
+// saveToFile 將回應 Body 儲存至指定路徑
+func saveToFile(resp *http.Response, savePath string, id int) {
+	defer closeWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
+
+	dir := filepath.Dir(savePath)
+	if err := os.MkdirAll(dir, constants.DirPermission); err != nil {
+		log.Printf("工人 #%d 建立目錄失敗: %s, 錯誤: %v", id, dir, err)
+		return
+	}
+
+	file, err := os.Create(savePath)
+	if err != nil {
+		log.Printf("工人 #%d 建立檔案失敗: %s, 錯誤: %v", id, savePath, err)
+		return
+	}
+	defer closeWithLog(file, fmt.Sprintf("工人 #%d 檔案", id))
+
+	if _, err = io.Copy(file, resp.Body); err != nil {
+		log.Printf("工人 #%d 寫入檔案失敗: %s, 錯誤: %v", id, savePath, err)
+		return
+	}
+	log.Printf("工人 #%d 下載完成: %s", id, savePath)
+}
+
 // downloadWorker 是 Worker Pool 中的一個工人 Goroutine
 func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types.DownloadTask, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -511,13 +565,10 @@ func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types
 				return
 			}
 
-			// *** 解決 429 Too Many Requests 的關鍵 ***
-			// 在每次下載前隨機延遲（使用配置值）
 			minDelay, maxDelay := c.Config.GetDelayRange()
 			delay := randomDelay(minDelay, maxDelay)
 			log.Printf("工人 #%d 延遲 %v 後下載: %s", id, delay, task.ImageURL)
 
-			// 使用 select 來處理延遲，以便能響應 context 取消
 			select {
 			case <-ctx.Done():
 				log.Printf("下載工人 #%d 在延遲時被中斷", id)
@@ -525,58 +576,9 @@ func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types
 			case <-time.After(delay):
 			}
 
-			req, err := http.NewRequestWithContext(ctx, "GET", task.ImageURL, nil)
-			if err != nil {
-				log.Printf("工人 #%d 建立請求失敗: %s, 錯誤: %v", id, task.ImageURL, err)
-				continue
+			if resp := c.fetchImage(ctx, id, task.ImageURL); resp != nil {
+				saveToFile(resp, task.SavePath, id)
 			}
-
-			resp, err := c.Client.Do(req)
-			if err != nil {
-				if ctx.Err() != nil {
-					log.Printf("下載工人 #%d 下載被中斷", id)
-					return
-				}
-				log.Printf("工人 #%d 下載失敗 (GET): %s, 錯誤: %v", id, task.ImageURL, err)
-				continue
-			}
-
-			if resp.StatusCode == http.StatusTooManyRequests {
-				log.Printf("工人 #%d 遇到 429 Too Many Requests，跳過此次下載: %s", id, task.ImageURL)
-				closeWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
-				continue
-			}
-
-			if resp.StatusCode != http.StatusOK {
-				log.Printf("工人 #%d 下載失敗 (狀態碼 %d): %s", id, resp.StatusCode, task.ImageURL)
-				closeWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
-				continue
-			}
-
-			// 使用立即執行的函式與 defer 來確保資源被釋放
-			func() {
-				defer closeWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
-
-				dir := filepath.Dir(task.SavePath)
-				if err := os.MkdirAll(dir, constants.DirPermission); err != nil {
-					log.Printf("工人 #%d 建立目錄失敗: %s, 錯誤: %v", id, dir, err)
-					return
-				}
-
-				file, err := os.Create(task.SavePath)
-				if err != nil {
-					log.Printf("工人 #%d 建立檔案失敗: %s, 錯誤: %v", id, task.SavePath, err)
-					return
-				}
-				defer closeWithLog(file, fmt.Sprintf("工人 #%d 檔案", id))
-
-				_, err = io.Copy(file, resp.Body)
-				if err != nil {
-					log.Printf("工人 #%d 寫入檔案失敗: %s, 錯誤: %v", id, task.SavePath, err)
-					return
-				}
-				log.Printf("工人 #%d 下載完成: %s", id, task.SavePath)
-			}()
 		}
 	}
 }
