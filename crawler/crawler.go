@@ -583,7 +583,7 @@ func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types
 			delay := randomDelay(minDelay, maxDelay)
 			log.Printf("工人 #%d 延遲 %v 後下載: %s", id, delay, task.ImageURL)
 
-				timer := time.NewTimer(delay)
+			timer := time.NewTimer(delay)
 			select {
 			case <-ctx.Done():
 				timer.Stop()

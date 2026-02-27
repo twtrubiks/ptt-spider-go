@@ -24,8 +24,8 @@ const (
 	Over18CookieValue = "1"
 
 	// HTTP 429 retry settings
-	RetryMaxAttempts   = 3     // 最多重試次數
+	RetryMaxAttempts    = 3     // 最多重試次數
 	RetryInitialDelayMs = 1000  // 初始退避延遲（毫秒）
-	RetryMaxDelayMs    = 30000 // 最大退避延遲（毫秒）
-	RetryBackoffFactor = 2     // 指數退避倍數
+	RetryMaxDelayMs     = 30000 // 最大退避延遲（毫秒）
+	RetryBackoffFactor  = 2     // 指數退避倍數
 )

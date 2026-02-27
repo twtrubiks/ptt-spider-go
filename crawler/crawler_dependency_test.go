@@ -367,11 +367,11 @@ func TestCrawler_ErrorHandling(t *testing.T) {
 
 func TestRandomDelay(t *testing.T) {
 	tests := []struct {
-		name     string
-		min      time.Duration
-		max      time.Duration
-		wantMin  time.Duration
-		wantMax  time.Duration
+		name    string
+		min     time.Duration
+		max     time.Duration
+		wantMin time.Duration
+		wantMax time.Duration
 	}{
 		{
 			name:    "equal min and max returns min",
