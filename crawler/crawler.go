@@ -230,8 +230,8 @@ func (c *Crawler) Run(ctx context.Context) {
 	channels := c.initializeChannels()
 	workers := c.startWorkers(ctx, channels)
 
-	// 啟動生產者
-	c.startProducer(ctx, channels.ArticleInfo)
+	// 非同步啟動生產者，避免 context 取消時阻塞在 channel 寫入造成 deadlock
+	go c.startProducer(ctx, channels.ArticleInfo)
 
 	// 等待完成和清理
 	c.waitAndCleanup(workers, channels)
