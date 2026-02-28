@@ -1,6 +1,6 @@
 # Go PTT Spider - 高效能 PTT 網路爬蟲
 
-[![Go Version](https://img.shields.io/badge/Go-1.24+-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.26+-blue.svg)](https://golang.org/)
 [![Go Report Card](https://img.shields.io/badge/go_report-A+-brightgreen.svg)](https://goreportcard.com/report/github.com/twtrubiks/ptt-spider-go)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -45,7 +45,7 @@ Go PTT Spider 是一個使用 Go 語言編寫的高效能 PTT 網路爬蟲，專
 
 ### 安裝需求
 
-- Go 1.24 或更高版本
+- Go 1.26 或更高版本
 - 穩定的網路連線
 
 ### 快速開始
