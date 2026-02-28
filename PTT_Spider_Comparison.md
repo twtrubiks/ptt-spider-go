@@ -14,16 +14,16 @@
 |----------|----------|------------|
 | **設計模式** | 基礎生產者-消費者 | 介面導向 + 依賴注入 |
 | **錯誤處理** | 通用 error | 結構化錯誤系統 (5種類型) |
-| **測試架構** | 基礎測試 (~40%) | Mock框架 + 良好覆蓋率 (65-95%) |
-| **模組設計** | 5個基礎模組 | 14個核心介面 + 實現分離 |
-| **效能優化** | 基本並發 | 記憶體監控 + 連線池優化 |
+| **測試架構** | 基礎測試 (~40%) | Mock框架 + 良好覆蓋率 (68-100%) |
+| **模組設計** | 5個基礎模組 | 3 個核心介面 + 實現分離（遵循消費端定義慣例） |
+| **效能優化** | 基本並發 | 記憶體監控 + HTTP Transport 連線池配置 |
 | **配置管理** | 硬編碼值 | 統一常數 + YAML配置 |
 
 ## 核心架構設計
 
-### 14個核心介面定義
+### 3 個核心介面定義
 
-專案採用介面導向設計，遵循 Go 慣例只保留實際被使用的核心介面：
+專案採用介面導向設計，遵循 Go 慣例「在消費端定義介面」，只保留實際被使用的核心介面：
 
 - **HTTPClient**: HTTP 客戶端抽象
 - **Parser**: HTML 解析器介面
@@ -44,7 +44,7 @@
          │             └──────────────────┘               │
          │                                                │
          └──────────── Performance Optimizer ─────────────┘
-                      (記憶體監控 + GC優化)
+                      (記憶體狀態監控)
 ```
 
 #### PTT_Beauty_Spider 架構 (Python版本參考)
@@ -92,14 +92,25 @@ const (
 - ✅ **YAML 配置管理**: 靈活的配置選項
 - ✅ **Markdown 生成**: 自動產生文章預覽
 - ✅ **Context 優雅關閉**: 中斷信號處理
-- ✅ **HTTP 連線池優化**: 提升網路效能 30-40%
-- ✅ **效能監控**: 記憶體監控和自動GC
+- ✅ **HTTP 連線池配置**: 透過 config.yaml 調整 Transport 參數
+- ✅ **效能監控**: 記憶體狀態監控和統計資訊
+- ✅ **HTTP 429 指數退避重試**: 自動重試最多 3 次，支援 Retry-After header 解析
+- ✅ **math/rand/v2**: 使用 per-goroutine 隨機數生成器，避免全域鎖競爭
+- ✅ **Timer 資源管理**: 使用 `time.NewTimer` 替代 `time.After`，避免 timer 洩漏
+- ✅ **CrawlerError 不可變性**: `WithContext` 回傳新副本，確保並發安全
+- ✅ **Config.Load 嚴格錯誤處理**: 讀取或解析失敗時回傳錯誤，不再靜默降級
+- ✅ **Crawler 封裝性**: 所有 Crawler 欄位改為 unexported，強制透過建構函式建立
+- ✅ **CloseWithLog 統一關閉**: `internal/ioutil.CloseWithLog` 統一處理 `io.Closer` 錯誤記錄
+- ✅ **startProducer goroutine**: 非同步生產者避免 context 取消時 deadlock
+- ✅ **Parser 關注點分離**: `GetMaxPage` 拆分為純解析的 `ParseMaxPage` 和 HTTP 層的 `fetchMaxPage`
+- ✅ **downloadWorker 職責拆分**: 拆為 `fetchImage`（HTTP 下載）和 `saveToFile`（檔案寫入）
+- ✅ **duration 解析優化**: `Config.Load` 時一次性解析所有 duration 字串，消除重複解析
 
 ### 架構特性
-- ✅ **介面導向設計**: 14個核心介面
+- ✅ **介面導向設計**: 3 個核心介面（消費端定義）
 - ✅ **依賴注入**: 提高可測試性
 - ✅ **Mock 測試框架**: 完整的單元測試
-- ✅ **良好測試覆蓋率**: 核心模組 65-95% 覆蓋率
+- ✅ **良好測試覆蓋率**: 核心模組 68-100% 覆蓋率
 - ✅ **結構化錯誤處理**: 5種錯誤類型
 
 ## 效能優化實測
@@ -140,15 +151,17 @@ ptt-spider-go/
 ├── doc.go                  # 套件文檔
 ├── constants/              # 統一常數管理
 │   └── constants.go       # 常數定義
-├── interfaces/             # 14個核心介面定義
-│   ├── interfaces.go      # 介面定義
-│   └── interfaces_test.go # 介面測試
+├── interfaces/             # 核心介面定義
+│   ├── interfaces.go      # 3 個核心介面（HTTPClient、Parser、MarkdownGenerator）
+│   └── interfaces_test.go # 介面定義驗證測試
 ├── errors/                 # 結構化錯誤處理
 │   ├── errors.go          # 錯誤類型定義
 │   └── errors_test.go     # 錯誤測試
 ├── crawler/                # 爬蟲核心邏輯
 │   ├── crawler.go         # 爬蟲實現
+│   ├── retry.go           # HTTP 429 指數退避重試機制
 │   ├── crawler_test.go    # 爬蟲測試
+│   ├── retry_test.go      # 重試機制測試
 │   └── crawler_dependency_test.go # 依賴注入測試
 ├── ptt/                    # PTT 網站功能
 │   ├── client.go          # HTTP 客戶端
@@ -162,9 +175,12 @@ ptt-spider-go/
 ├── mocks/                  # Mock 測試框架
 │   ├── mocks.go           # Mock 實現
 │   └── mocks_test.go      # Mock 測試
-├── performance/            # 效能監控優化
-│   ├── optimizer.go       # 效能優化器
-│   └── optimizer_test.go  # 效能優化器測試
+├── performance/            # 效能監控
+│   ├── optimizer.go       # 記憶體狀態監控和統計資訊
+│   └── optimizer_test.go  # 效能監控器測試
+├── internal/               # 內部共用套件
+│   └── ioutil/
+│       └── closer.go      # 共用 CloseWithLog 工具函式
 ├── config/                 # 配置管理
 │   ├── config.go          # 配置結構定義
 │   └── config_test.go     # 配置測試
@@ -182,19 +198,20 @@ ptt-spider-go/
 
 | 模組 | 初始覆蓋率 | 最終覆蓋率 | 提升幅度 |
 |------|------------|------------|----------|
-| crawler | 38.4% | 65.8% | +27.4% |
-| ptt | 新增 | 73.8% | - |
-| markdown | 新增 | 94.6% | - |
-| config | 94.6% | 94.6% | 維持 |
-| errors | 新增 | 90.9% | - |
+| crawler | 38.4% | 68.9% | +30.5% |
+| ptt | 新增 | 87.5% | - |
+| markdown | 新增 | 94.7% | - |
+| config | 94.6% | 97.3% | +2.7% |
+| errors | 新增 | 90.0% | - |
 | mocks | 新增 | 100.0% | - |
+| performance | 新增 | 100.0% | - |
 
 ## 總結
 
 Go PTT Spider 專案展現了從基礎實現到成熟系統的完整演進過程。透過系統性的重構，專案實現了：
 
 1. **架構升級**: 從簡單的生產者-消費者模式升級為介面導向的模組化架構
-2. **品質提升**: 測試覆蓋率從 ~40% 提升至 65-95%
+2. **品質提升**: 測試覆蓋率從 ~40% 提升至 68-100%
 3. **效能優化**: HTTP 連線池優化帶來 37% 的效能提升
 4. **維護性改善**: 依賴注入和 Mock 框架讓程式碼更易測試和擴展
 

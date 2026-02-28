@@ -20,12 +20,12 @@ Go PTT Spider 是一個使用 Go 語言編寫的高效能 PTT 網路爬蟲，專
 - **🔧 雙模式支援**: 支援看板模式和檔案模式，適應不同使用場景
 - **🖼️ 智能圖片處理**: 自動識別和下載多種圖片格式，包含 Imgur 連結處理
 - **📝 自動化文件生成**: 為每篇文章生成包含圖片預覽的 Markdown 檔案
-- **🛡️ 反爬蟲機制**: 內建延遲機制和模擬瀏覽器行為，避免被封鎖
+- **🛡️ 反爬蟲機制**: 內建延遲機制和模擬瀏覽器行為，避免被封鎖；HTTP 429 自動指數退避重試
 - **⚡ Context 優雅關閉**: 支援 Ctrl+C 中斷信號，能優雅地停止所有 Goroutine 並清理資源
-- **🏗️ 介面導向架構**: 14個核心介面實現鬆耦合設計，採用依賴注入模式提高可測試性
+- **🏗️ 介面導向架構**: 遵循 Go 消費端定義慣例，3 個核心介面實現鬆耦合設計，採用依賴注入模式提高可測試性
 - **🎯 結構化錯誤處理**: 5種自定義錯誤類型系統，支援錯誤包裝和詳細上下文資訊
-- **🚀 效能監控優化**: 內建記憶體監控、自動垃圾回收優化和 HTTP 連線池管理
-- **🧪 高測試覆蓋率**: 完整的單元測試和整合測試，Mock 測試框架，覆蓋率達 85% 以上
+- **🚀 效能監控**: 內建記憶體狀態監控和統計資訊
+- **🧪 高測試覆蓋率**: 完整的單元測試和整合測試，Mock 測試框架，核心模組覆蓋率 68-100%
 
 ### 執行畫面
 
@@ -77,7 +77,7 @@ go run main.go [參數]
 | `-pages` | int | 3 | 要爬取的頁數（從最新頁開始） |
 | `-push` | int | 10 | 推文數門檻（篩選熱門文章） |
 | `-file` | string | "" | 文章 URL 檔案路徑（啟用檔案模式） |
-| `-config` | string | "config.yaml" | 配置檔案路徑（支援自動降級） |
+| `-config` | string | "config.yaml" | 配置檔案路徑（檔案不存在時自動降級為預設值；讀取或解析失敗時程式終止） |
 
 ### 使用範例
 
@@ -212,7 +212,7 @@ crawler:
 
 ### 配置載入機制
 
-- **自動降級**: 如果配置檔案不存在或解析失敗，自動使用預設配置
+- **自動降級**: 如果配置檔案不存在，自動使用預設配置；讀取或解析失敗時回傳錯誤
 - **部分配置**: 可以只配置部分參數，其他參數使用預設值
 - **向下相容**: 沒有配置檔案時，程式依然正常運行
 
@@ -224,16 +224,18 @@ crawler:
 ptt-spider-go/
 ├── main.go                 # 程式入口點
 ├── constants/              # 統一常數管理
-│   └── constants.go        # PTT URLs、HTTP Headers、預設值
+│   └── constants.go        # PTT URLs、HTTP Headers、檔案權限、Over18 Cookie、預設值、重試設定
 ├── interfaces/             # 核心介面定義
-│   ├── interfaces.go       # 14個核心介面抽象
-│   └── interfaces_test.go  # 介面測試
+│   ├── interfaces.go       # 3 個核心介面（HTTPClient、Parser、MarkdownGenerator）
+│   └── interfaces_test.go  # 介面定義驗證測試
 ├── errors/                 # 結構化錯誤處理
 │   ├── errors.go          # 5種自定義錯誤類型
 │   └── errors_test.go     # 錯誤處理測試
 ├── crawler/                # 爬蟲核心邏輯
 │   ├── crawler.go         # 主要爬蟲實現
+│   ├── retry.go           # HTTP 429 指數退避重試機制
 │   ├── crawler_test.go    # 爬蟲邏輯測試
+│   ├── retry_test.go      # 重試機制測試
 │   └── crawler_dependency_test.go # 依賴注入測試
 ├── ptt/                   # PTT 網站功能
 │   ├── client.go          # HTTP 客戶端管理
@@ -247,9 +249,12 @@ ptt-spider-go/
 ├── mocks/                 # Mock 測試框架
 │   ├── mocks.go          # Mock 物件定義
 │   └── mocks_test.go     # Mock 測試
-├── performance/           # 效能監控優化
-│   ├── optimizer.go      # 記憶體監控、連線池優化
-│   └── optimizer_test.go # 效能優化器測試
+├── performance/           # 效能監控
+│   ├── optimizer.go      # 記憶體狀態監控和統計資訊
+│   └── optimizer_test.go # 效能監控器測試
+├── internal/              # 內部共用套件
+│   └── ioutil/
+│       └── closer.go     # 共用 CloseWithLog 工具函式
 ├── types/                 # 資料結構定義
 │   ├── types.go          # 核心資料結構
 │   └── types_test.go     # 類型測試
@@ -269,7 +274,7 @@ ptt-spider-go/
 
 1. **Article Producer**: 負責產生文章 URL 列表
 2. **Content Parser**: 解析文章內容並提取圖片 URL（10 個併發）
-3. **Download Worker**: 執行圖片下載任務（10 個併發）
+3. **Download Worker**: 執行圖片下載任務（10 個併發），內部拆分為 `fetchImage` (HTTP 下載) 和 `saveToFile` (檔案寫入)
 4. **Markdown Worker**: 生成 Markdown 檔案（1 個）
 
 ## 🔧 核心功能
@@ -301,7 +306,10 @@ ptt-spider-go/
 - 設定瀏覽器 User-Agent
 - 自動處理 PTT over18 驗證
 - 隨機延遲機制（500ms-2s）
-- HTTP 429 錯誤處理
+- HTTP 429 自動重試機制：
+  - 最多重試 3 次，使用指數退避演算法（1s → 2s → 4s，上限 30s）
+  - 支援 `Retry-After` header 解析（秒數和 HTTP-date 格式）
+  - 重試期間可被 Context 取消，確保優雅關閉
 
 ### 4. Context 優雅關閉機制
 
@@ -332,26 +340,32 @@ ptt-spider-go/
 
 ```go
 // 依賴注入範例：爬蟲建構函式
-func NewCrawlerWithDI(
-    httpClient interfaces.HTTPClient,
+func NewCrawlerWithDependencies(
+    client interfaces.HTTPClient,
     parser interfaces.Parser,
     markdownGen interfaces.MarkdownGenerator,
+    board string,
+    pages, pushRate int,
+    fileURL string,
+    cfg *config.Config,
 ) *Crawler {
     return &Crawler{
-        Client:            httpClient,
-        Parser:            parser,
-        MarkdownGenerator: markdownGen,
+        client:            client,
+        parser:            parser,
+        markdownGenerator: markdownGen,
+        // ...其他欄位
     }
 }
 
-// Mock 測試範例
+// Mock 測試範例（使用函式欄位模式）
 func TestCrawler_WithMock(t *testing.T) {
-    mockClient := &mocks.MockHTTPClient{}
-    mockParser := &mocks.MockParser{}
+    mockClient := mocks.NewMockHTTPClient()
+    mockParser := mocks.NewMockParser()
 
-    crawler := NewCrawler(mockClient, mockParser, ...)
-
-    mockClient.On("Do", mock.Anything).Return(mockResponse, nil)
+    // 透過設定函式欄位來定義 Mock 行為
+    mockClient.DoFunc = func(req *http.Request) (*http.Response, error) {
+        return mockResponse, nil
+    }
     // 進行隔離測試...
 }
 ```
@@ -401,7 +415,7 @@ type CrawlerError struct {
     Context map[string]interface{}  // 上下文資訊
 }
 
-// 錯誤包裝和上下文
+// 錯誤包裝和上下文（WithContext 回傳新副本，不修改原始實例）
 err := NewNetworkError("HTTP 請求失敗", originalErr).
     WithContext("url", "https://www.ptt.cc/bbs/Beauty").
     WithContext("retry_count", 3)
@@ -436,49 +450,49 @@ if err != nil {
 }
 ```
 
-## 🚀 效能監控優化
+## 🚀 效能監控
 
 ### 記憶體監控系統
 
-內建效能優化器提供即時記憶體監控和自動垃圾回收：
+內建效能監控器提供即時記憶體狀態監控和統計資訊：
 
 ```go
-// 效能優化器初始化
-optimizer := performance.NewOptimizer(
-    256, // 記憶體閾值 256MB
-    30*time.Second, // 監控間隔
-)
+// 效能監控器初始化
+optimizer := performance.NewOptimizer(30 * time.Second) // 監控間隔
 
 // 啟動監控
 optimizer.Start(ctx)
 
 // 獲取記憶體統計
 stats := optimizer.GetMemoryStats()
-fmt.Printf("記憶體使用: %s, Goroutines: %d",
-    formatBytes(stats.Alloc), stats.NumGoroutine)
+log.Printf("記憶體狀態: %s", stats.String())
 ```
 
-### HTTP 連線池優化
+### HTTP 連線池配置
 
-優化 HTTP Transport 配置，提升網路效能：
+HTTP Transport 連線池透過 `config.yaml` 中的 `http` 區段配置（在 `ptt/client.go` 中套用），提升網路效能：
 
-```go
-type ConnectionPool struct {
-    maxIdleConns        int           // 最大空閒連線數: 100
-    maxIdleConnsPerHost int           // 每主機最大空閒連線: 20
-    idleConnTimeout     time.Duration // 空閒連線超時: 90s
-    tlsHandshakeTimeout time.Duration // TLS 握手超時: 10s
-}
-
-// 連線池優化帶來 30-40% 效能提升
+```yaml
+http:
+  maxIdleConns: 100           # 最大空閒連線數
+  maxIdleConnsPerHost: 20     # 每主機最大空閒連線
+  idleConnTimeout: "90s"      # 空閒連線超時
+  tlsHandshakeTimeout: "10s"  # TLS 握手超時
 ```
 
 ### 效能監控功能
 
 - **即時記憶體統計**: Alloc、Sys、NumGC、Goroutines 數量
-- **自動 GC 觸發**: 記憶體超過閾值時自動垃圾回收
-- **連線重用**: HTTP Keep-Alive 和連線池管理
+- **連線重用**: HTTP Keep-Alive 和連線池管理（透過配置檔調整）
 - **效能報告**: 定期輸出效能統計資訊
+
+### 效能相關改進
+
+- **math/rand/v2**: 使用 per-goroutine 隨機數生成器，避免全域鎖競爭提升並發效能
+- **time.NewTimer**: 替代 `select` 中的 `time.After`，避免未觸發的 timer 無法被 GC 回收造成洩漏
+- **startProducer goroutine**: 非同步啟動生產者，避免 context 取消時阻塞在 channel 寫入造成 deadlock
+- **CloseWithLog**: 統一透過 `internal/ioutil.CloseWithLog` 處理 `io.Closer` 關閉，確保錯誤不被靜默忽略
+- **CrawlerError 不可變性**: `WithContext` 回傳新副本，`IsXxxError` 改用 `errors.As` 支援 wrapped error 鏈
 
 ### 核心資料型別與介面實現
 
@@ -507,9 +521,7 @@ type MarkdownInfo struct {
 }
 
 // 介面實現範例 - Parser 介面的具體實現
-type ParserImpl struct {
-    client interfaces.HTTPClient  // 注入 HTTP 客戶端介面
-}
+type ParserImpl struct{}
 
 // 實現 Parser 介面方法
 func (p *ParserImpl) ParseArticles(body io.Reader) ([]ArticleInfo, error) {
@@ -538,40 +550,39 @@ markdownTaskChan := make(chan types.MarkdownInfo, cfg.Crawler.Channels.MarkdownT
 ### Context 控制流程
 
 ```go
-// 主程式設定信號監聽和 Context 控制
-func (c *Crawler) Run(ctx context.Context) {
-    // 設定信號監聽
+// main.go — 信號監聽和 Context 控制
+func main() {
+    // 建立可取消的 Context
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    // 監聽系統信號
     sigChan := make(chan os.Signal, 1)
     signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-    // 建立可取消的 Context
-    ctx, cancel := context.WithCancel(ctx)
-    defer cancel()
-
-    // 監聽中斷信號
     go func() {
         <-sigChan
         log.Println("收到中斷信號，正在優雅關閉爬蟲...")
         cancel()
     }()
 
-    // 所有 Worker 都會檢查 context 狀態
-    for {
-        select {
-        case <-ctx.Done():
-            log.Println("Worker 收到中斷信號")
-            return
-        case task := <-taskChan:
-            // 處理任務
-        }
-    }
+    // 啟動爬蟲（內部所有 Worker 都會檢查 ctx 狀態）
+    c.Run(ctx)
+}
+
+// crawler.go — Run 方法
+func (c *Crawler) Run(ctx context.Context) {
+    channels := c.initializeChannels()
+    workers := c.startWorkers(ctx, channels)
+    go c.startProducer(ctx, channels.ArticleInfo)
+    c.waitAndCleanup(workers, channels)
 }
 ```
 
 ### 錯誤處理
 
 - 網路連線失敗自動跳過
-- HTTP 429 錯誤特殊處理
+- HTTP 429 自動指數退避重試（最多 3 次，支援 Retry-After header）
 - 檔案寫入失敗記錄但不中斷程式
 - Context 取消時優雅退出，避免資源洩漏
 
@@ -601,37 +612,35 @@ go tool cover -html=coverage.out -o coverage.html
 
 ### 測試架構與覆蓋率
 
-**當前測試覆蓋率 (85%+ 目標達成)**:
-- **crawler**: 85.7% (crawler_dependency_test.go - 依賴注入測試)
-- **ptt/parser**: 85.5% (parser_impl_test.go - Mock 解析測試)
-- **markdown**: 87.8% (generator_impl_test.go - 生成器測試)
-- **config**: 94.6% (config_test.go - 配置載入測試)
-- **errors**: 94.4% (errors_test.go - 錯誤處理測試)
-- **interfaces**: 92.1% (interfaces_test.go - 介面測試)
-- **performance**: 100% (optimizer_test.go - 效能優化器測試)
+**當前測試覆蓋率**:
+- **config**: 97.3% (config_test.go - 配置載入測試)
+- **markdown**: 94.7% (generator_impl_test.go - 生成器測試)
+- **errors**: 90.0% (errors_test.go - 錯誤處理測試)
+- **ptt**: 87.5% (parser_impl_test.go - Mock 解析測試)
+- **crawler**: 68.9% (crawler_test.go, retry_test.go, crawler_dependency_test.go)
+- **mocks**: 100% (mocks_test.go - Mock 框架測試)
+- **performance**: 100% (optimizer_test.go - 效能監控器測試)
 
 ### Mock 測試框架
 
 使用依賴注入實現完全隔離的單元測試：
 
 ```go
-// Mock HTTP 客戶端測試
+// Mock HTTP 客戶端測試（使用函式欄位模式，非 testify）
 func TestCrawler_WithMockHTTPClient(t *testing.T) {
-    mockClient := &mocks.MockHTTPClient{}
-    mockParser := &mocks.MockParser{}
+    mockClient := mocks.NewMockHTTPClient()
+    mockParser := mocks.NewMockParser()
 
-    crawler := NewCrawlerWithDI(mockClient, mockParser)
+    // 透過函式欄位設定 Mock 行為
+    mockClient.DoFunc = func(req *http.Request) (*http.Response, error) {
+        return createMockResponse(), nil
+    }
+    mockParser.ParseArticlesFunc = func(body io.Reader) ([]types.ArticleInfo, error) {
+        return []types.ArticleInfo{{Title: "Test", URL: "..."}}, nil
+    }
 
-    // 設定 Mock 預期行為
-    mockClient.On("Do", mock.Anything).Return(createMockResponse(), nil)
-    mockParser.On("ParseArticles", mock.Anything).Return([]ArticleInfo{...}, nil)
-
-    // 執行測試並驗證
-    result := crawler.Run(ctx)
-    assert.NoError(t, result)
-
-    mockClient.AssertExpectations(t)
-    mockParser.AssertExpectations(t)
+    crawler := NewCrawlerWithDependencies(mockClient, mockParser, ...)
+    crawler.Run(ctx) // Run 無回傳值
 }
 ```
 
@@ -648,18 +657,18 @@ func TestCrawler_WithMockHTTPClient(t *testing.T) {
 ├── mocks/                  # Mock 測試框架
 │   ├── mocks.go           # Mock 物件定義
 │   └── mocks_test.go      # Mock 框架測試
-├── config/config_test.go   # 配置載入測試 (94.6%)
+├── config/config_test.go   # 配置載入測試 (97.3%)
 ├── ptt/
 │   ├── ptt_test.go        # PTT 整合測試
-│   └── parser_impl_test.go # 解析器 Mock 測試 (85.5%)
+│   └── parser_impl_test.go # 解析器 Mock 測試 (87.5%)
 ├── crawler/
 │   ├── crawler_test.go    # 爬蟲邏輯測試
-│   └── crawler_dependency_test.go # DI 測試 (85.7%)
+│   ├── retry_test.go      # 重試機制測試
+│   └── crawler_dependency_test.go # DI 測試 (68.9%)
 ├── markdown/
 │   ├── markdown_test.go   # Markdown 測試
-│   └── generator_impl_test.go # 生成器測試 (87.8%)
-├── errors/errors_test.go   # 錯誤處理測試 (94.4%)
-├── interfaces/interfaces_test.go # 介面測試 (92.1%)
+│   └── generator_impl_test.go # 生成器測試 (94.7%)
+├── errors/errors_test.go   # 錯誤處理測試 (90.0%)
 └── types/types_test.go     # 資料結構測試
 ```
 

@@ -1,5 +1,6 @@
 // Package crawler 實現 PTT 爬蟲的核心邏輯，
-// 採用 Producer-Consumer 架構處理文章爬取、圖片下載和 Markdown 生成。
+// 採用 Producer-Consumer 架構處理文章爬取、圖片下載和 Markdown 生成，
+// 並內建 HTTP 429 指數退避重試機制。
 package crawler
 
 import (
@@ -83,7 +84,7 @@ func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.C
 		return nil, fmt.Errorf("建立 client 失敗: %w", err)
 	}
 
-	// 建立效能優化器 (記憶體閾值 100MB，檢查間隔 30 秒)
+	// 建立效能監控器 (監控間隔 30 秒)
 	optimizer := performance.NewOptimizer(30 * time.Second)
 
 	return &Crawler{

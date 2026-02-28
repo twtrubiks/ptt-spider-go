@@ -21,7 +21,7 @@
 #### 位置: `ptt/client.go` (已重構)
 **原問題**: `NewClient()` 和 `NewClientWithConfig()` 函式有大量重複的客戶端配置邏輯
 
-**已重構**: 現在透過 `configureCookies()` (第 29 行) 和 `newClientWithOptions()` (第 60 行) 統一處理客戶端配置邏輯。
+**已重構**: 現在透過 `configureCookies()` 和 `newClientWithOptions()` 統一處理客戶端配置邏輯。
 
 **重構前程式碼** (已不存在):
 ```go
@@ -37,7 +37,7 @@ jar.SetCookies(overEighteenURL, []*http.Cookie{
 
 ### 2. 龐大函式異味 (已重構解決)
 
-#### 位置: `crawler/crawler.go` (Run 方法，現在位於第 212 行)
+#### 位置: `crawler/crawler.go` (Run 方法)
 **原問題**: Run 方法原本長達 55 行，負責太多職責
 - Worker 池初始化
 - Channel 管理
@@ -46,7 +46,7 @@ jar.SetCookies(overEighteenURL, []*http.Cookie{
 
 **已重構**: 現在 Run 方法約 26 行，職責已分離到 `initializeChannels()`、`startWorkers()`、`startProducer()`、`waitAndCleanup()`、`logCompletion()` 等輔助函數。
 
-#### 位置: `crawler/crawler.go` (contentParser 方法，現在位於第 306 行)
+#### 位置: `crawler/crawler.go` (contentParser 方法)
 **原問題**: contentParser 方法原本長達 105 行，職責過重
 - HTTP 請求處理
 - 內容解析
@@ -94,22 +94,23 @@ overEighteenURL, err := url.Parse(constants.Over18URL)
 
 ### 5. 依戀情結 (Feature Envy)
 
-#### 位置: `crawler/crawler.go` (dispatchTasks 方法，第 405 行)
+#### 位置: `crawler/crawler.go` (dispatchTasks 方法)
 **問題**: Crawler 過度依賴其他模組的內部實現
 ```go
 dirName := fmt.Sprintf("%s_%d", cleanFileName(finalTitle), article.PushRate)
-saveDir := filepath.Join(c.Board, dirName)
+saveDir := filepath.Join(c.board, dirName)
 ```
 
 ## 測試覆蓋率評估
 
-### 當前覆蓋率狀況 (2025-12 更新)
-- **crawler**: 65.8% ✅ (良好)
-- **ptt**: 73.8% ✅ (良好)
-- **config**: 94.6% ✅ (優秀)
-- **markdown**: 94.6% ✅ (優秀)
-- **errors**: 90.9% ✅ (優秀)
+### 當前覆蓋率狀況 (2026-02 更新)
+- **crawler**: 68.9% ✅ (良好)
+- **ptt**: 87.5% ✅ (良好)
+- **config**: 97.3% ✅ (優秀)
+- **markdown**: 94.7% ✅ (優秀)
+- **errors**: 90.0% ✅ (優秀)
 - **mocks**: 100.0% ✅ (完美)
+- **performance**: 100.0% ✅ (完美)
 
 ### 覆蓋率挑戰
 1. **crawler** 模組的並發邏輯測試複雜
@@ -182,8 +183,8 @@ func (c *Crawler) Run(ctx context.Context) {
     channels := c.initializeChannels()
     workers := c.startWorkers(ctx, channels)
 
-    // 啟動生產者
-    c.startProducer(ctx, channels.articleInfo)
+    // 非同步啟動生產者，避免 context 取消時 deadlock
+    go c.startProducer(ctx, channels.ArticleInfo)
 
     // 等待完成和清理
     c.waitAndCleanup(workers, channels)
@@ -219,24 +220,38 @@ const (
     DefaultBoard    = "beauty"
     DefaultPages    = 3
     DefaultPushRate = 10
+
+    // Over18 cookie settings
+    Over18CookieName  = "over18"
+    Over18CookieValue = "1"
+
+    // HTTP 429 retry settings
+    RetryMaxAttempts    = 3
+    RetryInitialDelayMs = 1000
+    RetryMaxDelayMs     = 30000
+    RetryBackoffFactor  = 2
 )
 ```
 
 ### 中優先級重構
 
-#### 4. 改進錯誤處理
+#### 4. 改進錯誤處理 (已完成)
 **目標**: 定義自定義錯誤類型，提供更好的錯誤上下文
 
-**新檔案**: `errors/errors.go`
+**檔案**: `errors/errors.go`
 ```go
 package errors
 
-import "fmt"
+import (
+    stderrors "errors"
+    "fmt"
+)
 
 type CrawlerError struct {
     Type    ErrorType
     Message string
     Cause   error
+    Context map[string]interface{}
 }
 
 type ErrorType int
@@ -251,14 +266,27 @@ const (
 
 func (e *CrawlerError) Error() string {
     if e.Cause != nil {
-        return fmt.Sprintf("%s: %v", e.Message, e.Cause)
+        return fmt.Sprintf("[%s] %s: %v", e.Type.String(), e.Message, e.Cause)
     }
-    return e.Message
+    return fmt.Sprintf("[%s] %s", e.Type.String(), e.Message)
 }
 
-func NewNetworkError(msg string, cause error) *CrawlerError {
-    return &CrawlerError{Type: NetworkError, Message: msg, Cause: cause}
+// WithContext 回傳新副本，不修改原始實例（不可變性）
+func (e *CrawlerError) WithContext(key string, value interface{}) *CrawlerError {
+    newCtx := make(map[string]interface{}, len(e.Context)+1)
+    for k, v := range e.Context {
+        newCtx[k] = v
+    }
+    newCtx[key] = value
+    return &CrawlerError{Type: e.Type, Message: e.Message, Cause: e.Cause, Context: newCtx}
 }
+
+// NewNetworkError 透過共用建構函式建立錯誤
+func NewNetworkError(msg string, cause error) *CrawlerError {
+    return NewCrawlerErrorWithCause(NetworkError, msg, cause)
+}
+
+// IsXxxError 使用 errors.As 支援 wrapped error 鏈
 ```
 
 #### 5. 增加測試覆蓋率
@@ -304,9 +332,8 @@ func TestCrawler_Run_WithMockClient(t *testing.T) {
 package interfaces
 
 import (
-    "context"
-    "net/http"
     "io"
+    "net/http"
 )
 
 type HTTPClient interface {
@@ -316,6 +343,7 @@ type HTTPClient interface {
 type Parser interface {
     ParseArticles(body io.Reader) ([]types.ArticleInfo, error)
     ParseArticleContent(body io.Reader) (string, []string, error)
+    ParseMaxPage(body io.Reader) (int, error)
 }
 
 type MarkdownGenerator interface {
@@ -368,14 +396,17 @@ if err := someOperation(); err != nil {
 
 ### 3. 結構體初始化
 ```go
-// 使用命名欄位初始化
+// 使用命名欄位初始化（欄位為 unexported，透過建構函式建立）
 crawler := &Crawler{
-    Client:   client,
-    Board:    board,
-    Pages:    pages,
-    PushRate: pushRate,
-    FileURL:  fileURL,
-    Config:   cfg,
+    client:            client,
+    parser:            parser,
+    markdownGenerator: markdownGen,
+    optimizer:         optimizer,
+    board:             board,
+    pages:             pages,
+    pushRate:          pushRate,
+    fileURL:           fileURL,
+    config:            cfg,
 }
 ```
 
@@ -391,7 +422,7 @@ crawler := &Crawler{
 1. ✅ **定義錯誤類型**: 改進錯誤處理
 2. ✅ **介面抽象**: 提高可測試性
 3. ✅ **依賴注入**: 降低耦合度
-4. ✅ **增加測試**: 測試覆蓋率達到 65-95%
+4. ✅ **增加測試**: 測試覆蓋率達到 68-100%
 
 ### 階段 3: 最佳化 ✅ (已完成)
 1. ✅ **效能調校**: 連線池和記憶體優化
@@ -420,7 +451,7 @@ crawler := &Crawler{
 ### 程式碼品質提升
 - **可讀性**: 函式更小、職責明確
 - **可維護性**: 減少重複、統一配置
-- **可測試性**: 良好的測試覆蓋率 (65-95%)
+- **可測試性**: 良好的測試覆蓋率 (68-100%)
 
 ### 開發效率提升
 - **除錯容易**: 更好的錯誤訊息和日誌
@@ -450,7 +481,7 @@ crawler := &Crawler{
 
 **檔案變更**:
 - 新增: `constants/constants.go`
-- 更新: `ptt/client.go`, `ptt/parser.go`, `crawler/crawler.go`, `main.go`, `markdown/generator.go`
+- 更新: `ptt/client.go`, `ptt/parser_impl.go`, `crawler/crawler.go`, `main.go`, `markdown/generator_impl.go`
 
 #### 2. 重構 ptt/client.go
 **實施內容**:
@@ -465,7 +496,7 @@ crawler := &Crawler{
 
 #### 3. 分離 crawler.go 大函式
 **實施內容**:
-- 將原本 55 行的 `Run()` 方法重構為約 26 行（位於第 212 行）
+- 將原本 55 行的 `Run()` 方法重構為約 26 行
 - 新增輔助結構: `WorkerChannels`, `Workers`
 - 提取 5 個小函式: `initializeChannels()`, `startWorkers()`, `startProducer()`, `waitAndCleanup()`, `logCompletion()`
 
@@ -494,7 +525,7 @@ crawler := &Crawler{
 1. ✅ 定義自定義錯誤類型
 2. ✅ 建立介面抽象
 3. ✅ 實施依賴注入
-4. ✅ 測試覆蓋率達到 65-95%
+4. ✅ 測試覆蓋率達到 68-100%
 
 ## 階段 2 完成報告
 
@@ -513,25 +544,15 @@ crawler := &Crawler{
 
 #### 2. 建立介面抽象 (interfaces/interfaces.go)
 **實施內容**:
-- 定義 14 個核心介面，涵蓋所有主要功能
-- HTTPClient, Parser, MarkdownGenerator 等關鍵介面
+- 遵循 Go 慣例「在消費端定義介面」，定義 3 個核心介面
+- HTTPClient, Parser, MarkdownGenerator
 - 支援多種實作和測試 Mock
+- 移除了 11 個未被實際使用的介面，保持精簡
 
 **介面列表**:
 - HTTPClient: HTTP 客戶端抽象
 - Parser: HTML 解析器介面
 - MarkdownGenerator: Markdown 生成器介面
-- FileDownloader: 檔案下載器介面
-- ConfigLoader: 配置載入器介面
-- ArticleProducer: 文章生產者介面
-- ContentProcessor: 內容處理器介面
-- WorkerPool: 工人池管理介面
-- Logger: 日誌記錄器介面
-- Crawler: 爬蟲主介面
-- Validator: 驗證器介面
-- CacheManager: 快取管理器介面
-- RateLimiter: 速率限制器介面
-- MetricsCollector: 指標收集器介面
 
 #### 3. 實施依賴注入
 **實施內容**:
@@ -551,19 +572,21 @@ crawler := &Crawler{
 - 測試錯誤處理路徑和邊界條件
 
 **新增測試檔案**:
-- `crawler/crawler_dependency_test.go`: 85.7% 覆蓋率
-- `ptt/parser_impl_test.go`: 85.5% 覆蓋率
-- `markdown/generator_impl_test.go`: 87.8% 覆蓋率
+- `crawler/crawler_dependency_test.go`: 依賴注入測試
+- `crawler/retry_test.go`: HTTP 429 重試機制測試
+- `ptt/parser_impl_test.go`: 解析器 Mock 測試
+- `markdown/generator_impl_test.go`: 生成器測試
 
 ### 測試結果
 - ✅ 所有測試通過 (go test ./...)
-- ✅ 測試覆蓋率現況 (2025-12):
-  - crawler: 65.8%
-  - ptt: 73.8%
-  - markdown: 94.6%
-  - config: 94.6%
-  - errors: 90.9%
+- ✅ 測試覆蓋率現況 (2026-02):
+  - crawler: 68.9%
+  - ptt: 87.5%
+  - markdown: 94.7%
+  - config: 97.3%
+  - errors: 90.0%
   - mocks: 100.0%
+  - performance: 100.0%
 
 ### 架構改進成果
 1. **模組化**: 清晰的介面定義和職責分離
@@ -588,15 +611,14 @@ crawler := &Crawler{
 
 #### 2. 效能調校 - 連線池和記憶體優化
 **實施內容**:
-- 建立效能優化器 (performance/optimizer.go)
-- 實作記憶體監控和自動 GC
-- 優化 HTTP 連線池設定
+- 建立效能監控器 (performance/optimizer.go)
+- 實作記憶體狀態監控和統計資訊
+- HTTP 連線池透過 config.yaml 的 http 區段配置
 - 整合效能監控到爬蟲主程式
 
-**效能優化功能**:
-- 記憶體使用監控
-- 自動觸發 GC 當記憶體超過閾值
-- HTTP 連線池優化 (MaxIdleConns, MaxIdleConnsPerHost)
+**效能監控功能**:
+- 記憶體使用監控 (Alloc、Sys、NumGC、Goroutines)
+- HTTP 連線池配置 (MaxIdleConns, MaxIdleConnsPerHost)
 - 定期效能報告
 
 #### 3. 文件完善
@@ -606,20 +628,20 @@ crawler := &Crawler{
   - 模組化架構與依賴注入
   - 自定義錯誤處理系統
   - 效能監控與優化
-  - 良好測試覆蓋率 (65-95%)
+  - 良好測試覆蓋率 (68-100%)
 
 ### 整體重構成果總結
 
 #### 程式碼品質提升
 - **模組化程度**: 從單體結構轉為清晰的模組化架構
-- **測試覆蓋率**: 從 ~40% 提升至 65-95%
+- **測試覆蓋率**: 從 ~40% 提升至 68-100%
 - **錯誤處理**: 從通用 error 升級為結構化錯誤系統
 - **程式碼重複**: 消除約 30% 的重複程式碼
 
 #### 架構改進
 - **依賴注入**: 實現完整的 DI 模式
-- **介面抽象**: 14 個核心介面定義
-- **效能監控**: 內建效能優化器
+- **介面抽象**: 3 個核心介面定義（遵循消費端定義慣例）
+- **效能監控**: 內建記憶體狀態監控器
 - **可擴展性**: 支援多種實作和擴展
 
 ## 循環複雜度重構專項報告
@@ -630,7 +652,7 @@ crawler := &Crawler{
 ### 問題函數識別
 使用 `gocyclo -over 15 .` 檢測到以下高複雜度函數（重構前）：
 
-1. **crawler/crawler.go - contentParser()**: 原複雜度 24 (現位於第 306 行，已重構)
+1. **crawler/crawler.go - contentParser()**: 原複雜度 24 (已重構)
 2. **markdown/markdown_test.go - TestGenerate()**: 原複雜度 22
 3. **markdown/generator_impl_test.go - TestGeneratorImpl_Generate()**: 原複雜度 19
 4. **mocks/mocks_test.go - TestMockParser()**: 原複雜度 17
@@ -739,3 +761,104 @@ quality-check:
 ```
 
 這次循環複雜度重構大幅提升了程式碼品質，使專案更易維護和擴展。
+
+## 持續改進記錄 (2026-02)
+
+### 已完成的重構
+
+#### 1. 將 GetMaxPage 拆分為 ParseMaxPage 與 fetchMaxPage (d6d127e)
+**目標**: 實現關注點分離，Parser 介面不再負責 HTTP I/O
+- `ParseMaxPage(body io.Reader) (int, error)` — 純 HTML 解析，留在 Parser 介面
+- `fetchMaxPage()` — HTTP 請求邏輯，移至 crawler 內部
+- **效果**: Parser 介面更加純粹，更容易測試
+
+#### 2. 抽取 duration 解析共用 helper (4cbbf64)
+**目標**: 消除 config 載入時的重複 duration 解析邏輯
+- 改為 `Load()` 時一次性解析所有 duration 字串
+- 抽取共用 helper 處理 `time.Duration` 轉換
+- **效果**: 減少重複程式碼，提升配置載入效率
+
+#### 3. 升級 math/rand 至 v2 (ad055b2)
+**目標**: 避免全域鎖競爭，提升並發效能
+- 從 `math/rand` 升級至 `math/rand/v2`
+- `rand/v2` 使用 per-goroutine 的隨機數生成器，無全域鎖
+- **效果**: 高並發場景下的隨機延遲不再成為瓶頸
+
+#### 4. 簡化 Optimizer 為純監控器 (8417356)
+**目標**: 移除未使用的優化功能，保持簡單
+- 移除 `ConnectionPool` 型別和 `sync.RWMutex`
+- 移除手動 `runtime.GC()` 和 `debug.FreeOSMemory()` 呼叫
+- Optimizer 現在只負責記憶體狀態監控和統計資訊
+- **效果**: 程式碼更簡潔，職責更明確
+
+#### 5. 抽取 CloseWithLog 至 internal/ioutil (55d8e3c)
+**目標**: 統一處理 `io.Closer` 的關閉錯誤記錄
+- 建立 `internal/ioutil/closer.go`，提供 `CloseWithLog` 共用函式
+- 替換所有忽略 `resp.Body.Close()` 錯誤的地方
+- **效果**: 消除重複程式碼，確保關閉錯誤不被靜默忽略
+
+#### 6. Crawler 結構體欄位改為 unexported (21f5c48)
+**目標**: 限制外部直接存取，強制使用建構函式
+- 所有 Crawler 欄位從大寫改為小寫
+- 外部只能透過 `NewCrawler` 或 `NewCrawlerWithDependencies` 建立實例
+- **效果**: 封裝性更好，防止外部直接修改內部狀態
+
+#### 7. 拆分 downloadWorker 為 fetchImage 與 saveToFile (45efee9)
+**目標**: 分離 HTTP 下載和檔案寫入的職責
+- `fetchImage()` — 負責 HTTP 請求和回應處理
+- `saveToFile()` — 負責檔案建立和資料寫入
+- **效果**: 每個函式職責單一，更容易獨立測試
+
+#### 8. 新增 HTTP 429 指數退避重試機制 (8935fe4)
+**目標**: 自動處理 PTT 的請求頻率限制
+- 新增 `crawler/retry.go`，包含 `doWithRetry()` 和 `calcRetryDelay()`
+- 支援 `Retry-After` header 解析（秒數和 HTTP-date 格式）
+- 使用指數退避公式（1s → 2s → 4s，上限 30s）
+- 重試期間可被 Context 取消
+- **效果**: 自動應對 HTTP 429，提升爬取穩定性
+
+#### 9. 移除 11 個未使用的介面定義 (b2c4460)
+**目標**: 遵循 Go 消費端定義慣例，移除未使用的抽象
+- 從 `interfaces/interfaces.go` 移除 11 個介面
+- 只保留實際被消費端使用的 3 個核心介面
+- **效果**: 介面更精簡，降低維護負擔
+
+#### 10. 移除 parser.go 和 generator.go 中重複的套件級函式 (e5fc741)
+**目標**: 消除 `ptt/parser.go` 和 `markdown/generator.go` 中與介面實作重複的函式
+- 刪除 `ptt/parser.go` 和 `markdown/generator.go`
+- 保留介面實作版本（`parser_impl.go` 和 `generator_impl.go`）
+- **效果**: 消除程式碼重複，避免維護兩份相同邏輯
+
+### 已修復的 Bug
+
+#### 高嚴重度
+
+| Commit | 修復內容 | 說明 |
+|--------|---------|------|
+| `3a3d5f1` | `strings.Trim` 誤用改為 `strings.TrimSuffix` | `strings.Trim` 會逐字元移除而非移除後綴，導致解析結果錯誤 |
+| `0062422` | 抽取 `randomDelay` 防止 `rand.Intn(0)` panic | 當 minDelay == maxDelay 時 `rand.Intn(0)` 會 panic |
+| `799b21e` | `startProducer` 改為 goroutine 避免 deadlock | Context 取消時，同步呼叫 `startProducer` 可能因 channel 寫入阻塞而 deadlock |
+
+#### 中嚴重度
+
+| Commit | 修復內容 | 說明 |
+|--------|---------|------|
+| `272e8bf` | `Config.Load()` 讀取/解析失敗時回傳錯誤 | 原本靜默降級為預設值，隱藏了配置錯誤 |
+| `05c57f1` | `RoundTrip` 改用 clone 避免修改原始 request | 違反 `http.RoundTripper` 契約，可能導致並發問題 |
+| `879a8dd` | 以 `wg.Wait()` 取代 `time.Sleep` 消除測試競態 | 使用 `time.Sleep` 等待 goroutine 完成不可靠，導致測試偶爾失敗 |
+| `bed043a` | `time.After` 改為 `time.NewTimer` 避免 timer 洩漏 | `select` 中使用 `time.After` 會在未觸發時造成 timer 無法被 GC 回收 |
+| `49f145c` | CrawlerError 不可變性、shadowing 與 wrapped error 支援 | `WithContext` 原本直接修改原實例，現在回傳新副本；修正變數 shadowing 問題 |
+
+#### 低嚴重度
+
+| Commit | 修復內容 | 說明 |
+|--------|---------|------|
+| `ff7b44b` | `resp.Body.Close` 改用 `closeWithLog` 檢查錯誤 | 原本忽略 `Close()` 的錯誤回傳值 |
+
+### 其他改進
+
+| Commit | 內容 | 說明 |
+|--------|------|------|
+| `a880547` | 升級 Go 最低版本需求至 1.26 | 配合 `math/rand/v2` 和其他新特性 |
+| `62a6762` | 執行 `gofmt -s` 修正程式碼格式化 | 統一程式碼風格 |
+| `4a163a0` | 移除 `NewOptimizer` 已棄用的 `memoryThresholdMB` 參數 | 清理 API，移除未使用的參數 |
