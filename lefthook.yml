@@ -1,0 +1,19 @@
+# Lefthook — Git hooks 管理
+# 安裝: go install github.com/evilmartians/lefthook@latest
+# 啟用: lefthook install
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: gofmt
+      run: gofmt -s -l -w {staged_files}
+      glob: "*.go"
+      stage_fixed: true
+
+    - name: golangci-lint
+      run: golangci-lint run --new-from-rev=HEAD
+      glob: "*.go"
+
+    - name: go-vet
+      run: go vet ./...
+      glob: "*.go"
