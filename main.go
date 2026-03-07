@@ -20,10 +20,28 @@ func main() {
 	pushRate := flag.Int("push", constants.DefaultPushRate, "推文數門檻")
 	fileURL := flag.String("file", "", "包含文章 URL 的文字檔路徑 (優先於看板模式)")
 	configPath := flag.String("config", "config.yaml", "配置檔案路徑")
+	tuiMode := flag.Bool("tui", false, "啟動互動式 TUI 選單")
 
 	flag.Parse()
 
 	logger := ui.NewStyledLogger()
+
+	// TUI 互動模式
+	if *tuiMode {
+		tuiCfg, err := ui.RunStartupForm(
+			constants.DefaultBoard,
+			constants.DefaultPages,
+			constants.DefaultPushRate,
+		)
+		if err != nil {
+			logger.Error("TUI 表單錯誤: %v", err)
+			os.Exit(1)
+		}
+		*board = tuiCfg.Board
+		*pages = tuiCfg.Pages
+		*pushRate = tuiCfg.PushRate
+		*fileURL = tuiCfg.FileURL
+	}
 
 	// 載入配置
 	cfg, err := config.Load(*configPath)

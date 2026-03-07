@@ -78,6 +78,7 @@ go run main.go [參數]
 | `-push` | int | 10 | 推文數門檻（篩選熱門文章） |
 | `-file` | string | "" | 文章 URL 檔案路徑（啟用檔案模式） |
 | `-config` | string | "config.yaml" | 配置檔案路徑（檔案不存在時自動降級為預設值；讀取或解析失敗時程式終止） |
+| `-tui` | bool | false | 啟動互動式 TUI 選單（選擇模式、設定參數） |
 
 ### 使用範例
 
@@ -104,6 +105,13 @@ echo "https://www.ptt.cc/bbs/Beauty/M.0987654321.A.DEF.html" >> urls.txt
 
 # 執行爬蟲
 go run main.go -file=urls.txt
+```
+
+#### TUI 互動模式
+
+```bash
+# 啟動互動式 TUI，透過表單選擇模式和設定參數
+go run main.go -tui
 ```
 
 #### 使用自定義配置
@@ -258,10 +266,12 @@ ptt-spider-go/
 ├── types/                 # 資料結構定義
 │   ├── types.go          # 核心資料結構
 │   └── types_test.go     # 類型測試
-├── ui/                    # CLI 輸出樣式化
+├── ui/                    # CLI 輸出樣式化與 TUI 互動介面
 │   ├── logger.go         # Logger 介面與 PlainLogger
 │   ├── styled.go         # StyledLogger（Lip Gloss 彩色輸出）
-│   └── logger_test.go    # Logger 測試
+│   ├── tui.go            # TUI 互動式啟動表單（huh）
+│   ├── logger_test.go    # Logger 測試
+│   └── tui_test.go       # TUI 表單測試
 ├── config/                # 配置管理模組
 │   ├── config.go         # 配置結構定義和載入
 │   └── config_test.go    # 配置測試
@@ -388,6 +398,7 @@ func TestCrawler_WithMock(t *testing.T) {
 - **[goquery](https://github.com/PuerkitoBio/goquery)**: HTML 解析和 DOM 操作
 - **[yaml.v3](https://gopkg.in/yaml.v3)**: YAML 配置檔案解析
 - **[lipgloss](https://github.com/charmbracelet/lipgloss)**: 終端輸出樣式化（彩色分級日誌）
+- **[huh](https://github.com/charmbracelet/huh)**: TUI 互動式表單（基於 Bubble Tea）
 - **Go 標準庫**: context, net/http, sync, os/signal 等
 
 ## 🎯 結構化錯誤處理

@@ -18,6 +18,9 @@ go run main.go -board beauty -pages 3 -push 10
 # 執行（檔案模式）
 go run main.go -file urls.txt -board beauty
 
+# TUI 互動模式
+go run main.go -tui
+
 # 帶設定檔執行
 go run main.go -config config.yaml
 
@@ -65,7 +68,7 @@ articleProducer (1 goroutine)
 | `performance` | 記憶體和 goroutine 監控 |
 | `mocks` | Function field pattern 的 mock 物件（無外部 mock 框架） |
 | `internal/ioutil` | `CloseWithLog` 統一資源關閉 |
-| `ui` | `Logger` 介面與實作：`PlainLogger`（純文字）、`StyledLogger`（Lip Gloss 彩色輸出） |
+| `ui` | `Logger` 介面與實作：`PlainLogger`（純文字）、`StyledLogger`（Lip Gloss 彩色輸出）；TUI 互動式啟動表單（`huh`） |
 
 ### 依賴注入
 
