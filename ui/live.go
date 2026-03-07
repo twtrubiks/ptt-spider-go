@@ -36,6 +36,7 @@ type liveModel struct {
 	progressCh <-chan types.ProgressEvent
 	cancel     context.CancelFunc
 	width      int
+	height     int
 
 	// 進度狀態
 	pagesCurrent int
@@ -86,14 +87,26 @@ func (m liveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "q":
+		case "ctrl+c":
 			m.quitting = true
 			m.cancel()
 			return m, tea.Quit
+		case "q":
+			if m.done {
+				return m, tea.Quit
+			}
+			m.quitting = true
+			m.cancel()
+			return m, tea.Quit
+		case "enter":
+			if m.done {
+				return m, tea.Quit
+			}
 		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
+		m.height = msg.Height
 		barWidth := msg.Width - 30
 		if barWidth < 20 {
 			barWidth = 20
@@ -109,16 +122,13 @@ func (m liveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleEvent(evt)
 
 		if m.done {
-			return m, tea.Sequence(
-				tea.Tick(1500*time.Millisecond, func(_ time.Time) tea.Msg {
-					return progressDoneMsg{}
-				}),
-			)
+			return m, nil
 		}
 		return m, waitForProgress(m.progressCh)
 
 	case progressDoneMsg:
-		return m, tea.Quit
+		m.done = true
+		return m, nil
 	}
 
 	return m, nil
@@ -239,14 +249,27 @@ func (m liveModel) View() string {
 		b.WriteString("\n")
 	}
 
-	// 最近事件 log
+	// 最近事件 log（根據終端高度動態調整顯示行數）
 	if len(m.logs) > 0 {
 		logHeaderStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252"))
 		logStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 
+		// 計算固定區域佔用的行數：
+		// 標題(1) + 設定(1) + 空行(1) + 頁面進度(1) + 下載進度(1) + 統計(1) + 空行(1)
+		// + workers + 空行(1) + 日誌標題(1) + 日誌空行(1) + 底部(1) = 11 + workerCount
+		fixedLines := 12 + len(m.workers)
+
+		maxVisible := len(m.logs)
+		if m.height > 0 {
+			available := max(m.height-fixedLines, 3)
+			maxVisible = min(maxVisible, available)
+		}
+
+		visibleLogs := m.logs[len(m.logs)-maxVisible:]
+
 		b.WriteString(logHeaderStyle.Render("最近事件"))
 		b.WriteString("\n")
-		for _, entry := range m.logs {
+		for _, entry := range visibleLogs {
 			b.WriteString(logStyle.Render("  " + entry))
 			b.WriteString("\n")
 		}
@@ -257,6 +280,8 @@ func (m liveModel) View() string {
 	if m.done {
 		doneStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
 		b.WriteString(doneStyle.Render(fmt.Sprintf("完成！%s", m.doneMsg)))
+		b.WriteString("\n")
+		b.WriteString(dimStyle.Render("按 Enter 或 q 離開"))
 		b.WriteString("\n")
 	} else {
 		b.WriteString(dimStyle.Render("Ctrl+C 優雅停止"))

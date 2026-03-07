@@ -215,6 +215,38 @@ func TestLiveModel_ViewDone(t *testing.T) {
 	if !strings.Contains(view, "完成") {
 		t.Error("done View should contain completion message")
 	}
+	if !strings.Contains(view, "按 Enter 或 q 離開") {
+		t.Error("done View should contain exit hint")
+	}
+}
+
+func TestLiveModel_DoneEnterQuits(t *testing.T) {
+	ch := make(chan types.ProgressEvent, 1)
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	m := newLiveModel(LiveConfig{Board: "test", Pages: 1}, ch, cancel)
+	m.done = true
+
+	// Enter should quit when done
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Error("Enter should return quit command when done")
+	}
+}
+
+func TestLiveModel_EnterIgnoredWhenNotDone(t *testing.T) {
+	ch := make(chan types.ProgressEvent, 1)
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	m := newLiveModel(LiveConfig{Board: "test", Pages: 1}, ch, cancel)
+
+	// Enter should be ignored when not done
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd != nil {
+		t.Error("Enter should not return command when not done")
+	}
 }
 
 func TestLiveModel_UpdateQuit(t *testing.T) {
