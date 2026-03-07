@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -11,6 +10,7 @@ import (
 	"github.com/twtrubiks/ptt-spider-go/config"
 	"github.com/twtrubiks/ptt-spider-go/constants"
 	"github.com/twtrubiks/ptt-spider-go/crawler"
+	"github.com/twtrubiks/ptt-spider-go/ui"
 )
 
 func main() {
@@ -23,16 +23,20 @@ func main() {
 
 	flag.Parse()
 
+	logger := ui.NewStyledLogger()
+
 	// 載入配置
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		log.Fatalf("載入配置失敗: %v", err)
+		logger.Error("載入配置失敗: %v", err)
+		os.Exit(1)
 	}
 
 	// 建立爬蟲
 	c, err := crawler.NewCrawler(*board, *pages, *pushRate, *fileURL, cfg)
 	if err != nil {
-		log.Fatalf("建立爬蟲失敗: %v", err)
+		logger.Error("建立爬蟲失敗: %v", err)
+		os.Exit(1)
 	}
 
 	// 建立 context 並監聽中斷信號
@@ -45,7 +49,7 @@ func main() {
 
 	go func() {
 		<-sigChan
-		log.Println("收到中斷信號，正在優雅關閉爬蟲...")
+		logger.Warn("收到中斷信號，正在優雅關閉爬蟲...")
 		cancel()
 	}()
 

@@ -258,6 +258,10 @@ ptt-spider-go/
 ├── types/                 # 資料結構定義
 │   ├── types.go          # 核心資料結構
 │   └── types_test.go     # 類型測試
+├── ui/                    # CLI 輸出樣式化
+│   ├── logger.go         # Logger 介面與 PlainLogger
+│   ├── styled.go         # StyledLogger（Lip Gloss 彩色輸出）
+│   └── logger_test.go    # Logger 測試
 ├── config/                # 配置管理模組
 │   ├── config.go         # 配置結構定義和載入
 │   └── config_test.go    # 配置測試
@@ -383,6 +387,7 @@ func TestCrawler_WithMock(t *testing.T) {
 
 - **[goquery](https://github.com/PuerkitoBio/goquery)**: HTML 解析和 DOM 操作
 - **[yaml.v3](https://gopkg.in/yaml.v3)**: YAML 配置檔案解析
+- **[lipgloss](https://github.com/charmbracelet/lipgloss)**: 終端輸出樣式化（彩色分級日誌）
 - **Go 標準庫**: context, net/http, sync, os/signal 等
 
 ## 🎯 結構化錯誤處理
@@ -562,7 +567,7 @@ func main() {
 
     go func() {
         <-sigChan
-        log.Println("收到中斷信號，正在優雅關閉爬蟲...")
+        logger.Warn("收到中斷信號，正在優雅關閉爬蟲...")
         cancel()
     }()
 

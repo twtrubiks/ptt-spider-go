@@ -65,6 +65,7 @@ articleProducer (1 goroutine)
 | `performance` | 記憶體和 goroutine 監控 |
 | `mocks` | Function field pattern 的 mock 物件（無外部 mock 框架） |
 | `internal/ioutil` | `CloseWithLog` 統一資源關閉 |
+| `ui` | `Logger` 介面與實作：`PlainLogger`（純文字）、`StyledLogger`（Lip Gloss 彩色輸出） |
 
 ### 依賴注入
 
