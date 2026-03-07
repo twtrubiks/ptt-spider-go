@@ -57,6 +57,20 @@ type Workers struct {
 	Markdown    *sync.WaitGroup
 }
 
+// Option 定義 Crawler 的可選配置函式
+type Option func(*Crawler)
+
+// WithProgress 設定進度事件 channel，讓外部（如 TUI）可以訂閱爬蟲的即時進度。
+// 當 channel 為 nil 時不發送任何事件。
+func WithProgress(ch chan<- types.ProgressEvent) Option {
+	return func(c *Crawler) { c.progress = ch }
+}
+
+// WithLogger 設定自訂的 Logger 實作。
+func WithLogger(l ui.Logger) Option {
+	return func(c *Crawler) { c.logger = l }
+}
+
 // Crawler 結構體包含爬蟲的所有狀態和配置.
 // 支援看板模式和檔案模式兩種爬取方式.
 type Crawler struct {
@@ -65,11 +79,24 @@ type Crawler struct {
 	markdownGenerator interfaces.MarkdownGenerator // Markdown 生成器
 	optimizer         *performance.Optimizer       // 效能優化器
 	logger            ui.Logger                    // 日誌輸出器
+	progress          chan<- types.ProgressEvent   // 進度事件 channel（nil 時不發送）
 	board             string                       // 看板名稱（看板模式時使用）
 	pages             int                          // 要爬取的頁數
 	pushRate          int                          // 推文數門檻
 	fileURL           string                       // 檔案路徑（檔案模式時使用）
 	config            *config.Config               // 配置物件
+}
+
+// emit 發送進度事件到 progress channel，channel 為 nil 時不執行任何操作。
+// 使用 non-blocking send 避免阻塞 crawler 的工作流程。
+func (c *Crawler) emit(evt types.ProgressEvent) {
+	if c.progress == nil {
+		return
+	}
+	select {
+	case c.progress <- evt:
+	default:
+	}
 }
 
 // NewCrawler 建立一個新的 Crawler 實例.
@@ -79,7 +106,8 @@ type Crawler struct {
 //   - pushRate: 推文數門檻
 //   - fileURL: 包含文章 URL 的檔案路徑（為空時使用看板模式）
 //   - cfg: 配置物件
-func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.Config) (*Crawler, error) {
+//   - opts: 可選配置（WithProgress、WithLogger 等）
+func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.Config, opts ...Option) (*Crawler, error) {
 	client, err := ptt.NewClientWithConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("建立 client 失敗: %w", err)
@@ -88,7 +116,7 @@ func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.C
 	// 建立效能監控器 (監控間隔 30 秒)
 	optimizer := performance.NewOptimizer(30 * time.Second)
 
-	return &Crawler{
+	c := &Crawler{
 		client:            client,
 		parser:            ptt.NewParser(),
 		markdownGenerator: markdown.NewGenerator(),
@@ -99,7 +127,13 @@ func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.C
 		pushRate:          pushRate,
 		fileURL:           fileURL,
 		config:            cfg,
-	}, nil
+	}
+
+	for _, opt := range opts {
+		opt(c)
+	}
+
+	return c, nil
 }
 
 // NewCrawlerWithDependencies 建立一個新的 Crawler 實例，支援依賴注入
@@ -205,6 +239,11 @@ func (c *Crawler) logCompletion(ctx context.Context, startTime time.Time) {
 		finalStats := c.optimizer.GetMemoryStats()
 		c.logger.Info("最終記憶體狀態: %s", finalStats.String())
 	}
+
+	c.emit(types.ProgressEvent{
+		Type:    types.EventCrawlerDone,
+		Message: fmt.Sprintf("總耗時: %s", duration),
+	})
 }
 
 // Run 啟動爬蟲主程序，採用 Producer-Consumer 架構.
@@ -318,6 +357,13 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 			continue
 		}
 
+		c.emit(types.ProgressEvent{
+			Type:        types.EventPageParsed,
+			CurrentPage: i + 1,
+			TotalPages:  c.pages,
+			Message:     fmt.Sprintf("解析第 %d/%d 頁完成，共 %d 篇文章", i+1, c.pages, len(articles)),
+		})
+
 		for _, article := range articles {
 			if article.PushRate >= c.pushRate {
 				select {
@@ -364,6 +410,13 @@ func (c *Crawler) processArticle(ctx context.Context, article types.ArticleInfo,
 	}
 
 	finalTitle := c.determineFinalTitle(article, parsedTitle)
+
+	c.emit(types.ProgressEvent{
+		Type:         types.EventArticleParsed,
+		ArticleTitle: finalTitle,
+		ImageCount:   len(imgURLs),
+		Message:      fmt.Sprintf("文章「%s」解析完成，發現 %d 張圖片", finalTitle, len(imgURLs)),
+	})
 
 	if len(imgURLs) > 0 {
 		c.dispatchTasks(ctx, finalTitle, article, imgURLs, downloadTaskChan, markdownTaskChan)
@@ -538,6 +591,11 @@ func (c *Crawler) fetchImage(ctx context.Context, id int, imageURL string) *http
 	if resp.StatusCode != http.StatusOK {
 		c.logger.Error("工人 #%d 下載失敗 (狀態碼 %d): %s", id, resp.StatusCode, imageURL)
 		ioutil.CloseWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
+		c.emit(types.ProgressEvent{
+			Type:     types.EventDownloadFail,
+			WorkerID: id,
+			Message:  fmt.Sprintf("狀態碼 %d: %s", resp.StatusCode, imageURL),
+		})
 		return nil
 	}
 	return resp
@@ -562,9 +620,19 @@ func (c *Crawler) saveToFile(resp *http.Response, savePath string, id int) {
 
 	if _, err = io.Copy(file, resp.Body); err != nil {
 		c.logger.Error("工人 #%d 寫入檔案失敗: %s, 錯誤: %v", id, savePath, err)
+		c.emit(types.ProgressEvent{
+			Type:     types.EventDownloadFail,
+			WorkerID: id,
+			Message:  fmt.Sprintf("寫入失敗: %s", savePath),
+		})
 		return
 	}
 	c.logger.Success("工人 #%d 下載完成: %s", id, savePath)
+	c.emit(types.ProgressEvent{
+		Type:     types.EventDownloadDone,
+		WorkerID: id,
+		Message:  savePath,
+	})
 }
 
 // downloadWorker 是 Worker Pool 中的一個工人 Goroutine
@@ -595,6 +663,12 @@ func (c *Crawler) downloadWorker(ctx context.Context, id int, tasks <-chan types
 				return
 			case <-timer.C:
 			}
+
+			c.emit(types.ProgressEvent{
+				Type:     types.EventDownloadStart,
+				WorkerID: id,
+				Message:  task.ImageURL,
+			})
 
 			if resp := c.fetchImage(ctx, id, task.ImageURL); resp != nil {
 				c.saveToFile(resp, task.SavePath, id)

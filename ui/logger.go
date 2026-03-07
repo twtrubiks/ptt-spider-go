@@ -12,6 +12,25 @@ type Logger interface {
 	Warn(format string, args ...any)
 }
 
+// NoopLogger 靜默丟棄所有輸出，適用於 TUI 即時進度模式。
+// 在 Bubble Tea 接管 terminal 時使用，避免 log 輸出干擾 TUI 畫面。
+type NoopLogger struct{}
+
+// NewNoopLogger 建立靜默 Logger.
+func NewNoopLogger() *NoopLogger { return &NoopLogger{} }
+
+// Info 靜默丟棄 Info 訊息.
+func (l *NoopLogger) Info(_ string, _ ...any) {}
+
+// Success 靜默丟棄 Success 訊息.
+func (l *NoopLogger) Success(_ string, _ ...any) {}
+
+// Error 靜默丟棄 Error 訊息.
+func (l *NoopLogger) Error(_ string, _ ...any) {}
+
+// Warn 靜默丟棄 Warn 訊息.
+func (l *NoopLogger) Warn(_ string, _ ...any) {}
+
 // PlainLogger 使用標準 log 套件輸出，不帶任何樣式。
 // 適用於自動化腳本、測試和非互動環境。
 type PlainLogger struct{}

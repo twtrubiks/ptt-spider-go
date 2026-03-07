@@ -78,7 +78,7 @@ go run main.go [參數]
 | `-push` | int | 10 | 推文數門檻（篩選熱門文章） |
 | `-file` | string | "" | 文章 URL 檔案路徑（啟用檔案模式） |
 | `-config` | string | "config.yaml" | 配置檔案路徑（檔案不存在時自動降級為預設值；讀取或解析失敗時程式終止） |
-| `-tui` | bool | false | 啟動互動式 TUI 選單（選擇模式、設定參數） |
+| `-tui` | bool | false | 啟動互動式 TUI 選單（含即時進度畫面） |
 
 ### 使用範例
 
@@ -110,9 +110,13 @@ go run main.go -file=urls.txt
 #### TUI 互動模式
 
 ```bash
-# 啟動互動式 TUI，透過表單選擇模式和設定參數
+# 啟動互動式 TUI，透過表單選擇模式和設定參數，接著顯示即時進度畫面
 go run main.go -tui
 ```
+
+TUI 模式提供：
+1. 互動式啟動表單（選擇看板/檔案模式、設定參數）
+2. 即時進度畫面（進度條、Worker 狀態、滾動事件 log）
 
 #### 使用自定義配置
 
@@ -240,11 +244,12 @@ ptt-spider-go/
 │   ├── errors.go          # 5種自定義錯誤類型
 │   └── errors_test.go     # 錯誤處理測試
 ├── crawler/                # 爬蟲核心邏輯
-│   ├── crawler.go         # 主要爬蟲實現
+│   ├── crawler.go         # 主要爬蟲實現（含 Option pattern 和進度事件）
 │   ├── retry.go           # HTTP 429 指數退避重試機制
 │   ├── crawler_test.go    # 爬蟲邏輯測試
 │   ├── retry_test.go      # 重試機制測試
-│   └── crawler_dependency_test.go # 依賴注入測試
+│   ├── crawler_dependency_test.go # 依賴注入測試
+│   └── progress_test.go   # 進度事件發送測試
 ├── ptt/                   # PTT 網站功能
 │   ├── client.go          # HTTP 客戶端管理
 │   ├── parser_impl.go     # 解析器實現 (Parser 介面)
@@ -265,13 +270,16 @@ ptt-spider-go/
 │       └── closer.go     # 共用 CloseWithLog 工具函式
 ├── types/                 # 資料結構定義
 │   ├── types.go          # 核心資料結構
+│   ├── progress.go       # 進度事件類型（ProgressEvent、EventType）
 │   └── types_test.go     # 類型測試
 ├── ui/                    # CLI 輸出樣式化與 TUI 互動介面
-│   ├── logger.go         # Logger 介面與 PlainLogger
+│   ├── logger.go         # Logger 介面、PlainLogger、NoopLogger
 │   ├── styled.go         # StyledLogger（Lip Gloss 彩色輸出）
 │   ├── tui.go            # TUI 互動式啟動表單（huh）
+│   ├── live.go           # 即時進度 TUI（Bubble Tea + 進度條）
 │   ├── logger_test.go    # Logger 測試
-│   └── tui_test.go       # TUI 表單測試
+│   ├── tui_test.go       # TUI 表單測試
+│   └── live_test.go      # 即時進度 TUI 測試
 ├── config/                # 配置管理模組
 │   ├── config.go         # 配置結構定義和載入
 │   └── config_test.go    # 配置測試
@@ -399,6 +407,8 @@ func TestCrawler_WithMock(t *testing.T) {
 - **[yaml.v3](https://gopkg.in/yaml.v3)**: YAML 配置檔案解析
 - **[lipgloss](https://github.com/charmbracelet/lipgloss)**: 終端輸出樣式化（彩色分級日誌）
 - **[huh](https://github.com/charmbracelet/huh)**: TUI 互動式表單（基於 Bubble Tea）
+- **[bubbletea](https://github.com/charmbracelet/bubbletea)**: TUI 框架（即時進度畫面）
+- **[bubbles](https://github.com/charmbracelet/bubbles)**: TUI 元件庫（進度條）
 - **Go 標準庫**: context, net/http, sync, os/signal 等
 
 ## 🎯 結構化錯誤處理

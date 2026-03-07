@@ -50,6 +50,8 @@ articleProducer (1 goroutine)
                 → downloadWorker (10 goroutines) → 儲存圖片
             → MarkdownInfo channel (buffer: 100)
                 → markdownWorker (1 goroutine) → 產生 README.md
+
+各階段透過 emit() → ProgressEvent channel → TUI 即時進度畫面（可選）
 ```
 
 所有 worker 透過 `context.Context` 實現優雅關閉，channel 關閉順序由 `waitAndCleanup()` 協調。
@@ -61,19 +63,28 @@ articleProducer (1 goroutine)
 | `crawler` | 核心協調器：Producer-Consumer 流程、worker pool、HTTP 429 重試 (`retry.go`) |
 | `ptt` | PTT 網站整合：HTTP client（含連線池和 Over18 cookie）、HTML 解析（goquery） |
 | `interfaces` | 3 個核心介面：`HTTPClient`、`Parser`、`MarkdownGenerator` |
-| `types` | 資料結構：`ArticleInfo`、`DownloadTask`、`MarkdownInfo` |
+| `types` | 資料結構：`ArticleInfo`、`DownloadTask`、`MarkdownInfo`、`ProgressEvent` |
 | `config` | YAML 設定載入，失敗時自動降級為預設值 |
 | `errors` | 5 種結構化錯誤型別，支援 `errors.As`/`errors.Is` |
 | `markdown` | 為每篇文章產生帶圖片連結的 Markdown 檔案 |
 | `performance` | 記憶體和 goroutine 監控 |
 | `mocks` | Function field pattern 的 mock 物件（無外部 mock 框架） |
 | `internal/ioutil` | `CloseWithLog` 統一資源關閉 |
-| `ui` | `Logger` 介面與實作：`PlainLogger`（純文字）、`StyledLogger`（Lip Gloss 彩色輸出）；TUI 互動式啟動表單（`huh`） |
+| `ui` | `Logger` 介面與實作：`PlainLogger`（純文字）、`StyledLogger`（Lip Gloss 彩色輸出）、`NoopLogger`（靜默）；TUI 互動式啟動表單（`huh`）；即時進度 TUI（Bubble Tea） |
 
 ### 依賴注入
 
-- `NewCrawler()` — 正式使用，自動建立所有依賴
+- `NewCrawler()` — 正式使用，自動建立所有依賴，支援 `...Option` variadic 參數
 - `NewCrawlerWithDependencies()` — 測試用，注入 mock 物件
+
+### Option Pattern
+
+`NewCrawler` 支援可選配置：
+
+```go
+crawler.WithProgress(ch)  // 注入進度事件 channel（TUI 即時進度用）
+crawler.WithLogger(l)     // 注入自訂 Logger
+```
 
 ### Mock 模式
 
