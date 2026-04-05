@@ -17,6 +17,16 @@ const (
 	workerStatusIdle = "idle"
 )
 
+// package-level 樣式變數，避免在 View() 中每次渲染都重建
+var (
+	liveDimStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	liveTitleStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
+	liveActiveStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
+	liveIdleStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
+	liveLogHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252"))
+	liveDoneStyle      = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
+)
+
 // LiveConfig 設定即時進度 TUI 的參數
 type LiveConfig struct {
 	Board    string
@@ -157,7 +167,6 @@ func (m *liveModel) handleEvent(evt types.ProgressEvent) {
 	case types.EventDownloadDone:
 		m.downloadOK++
 		m.workers[evt.WorkerID] = workerStatusIdle
-		m.addLog(ts, " OK ", fmt.Sprintf("Worker#%d 下載完成", evt.WorkerID))
 
 	case types.EventDownloadFail:
 		m.downloadFail++
@@ -187,13 +196,11 @@ func (m liveModel) View() string {
 	var b strings.Builder
 
 	// 標題
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("12"))
-	b.WriteString(titleStyle.Render("PTT Spider"))
+	b.WriteString(liveTitleStyle.Render("PTT Spider"))
 	b.WriteString("\n")
 
 	// 設定資訊
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-	b.WriteString(dimStyle.Render(fmt.Sprintf("看板: %s    頁數: %d    推文門檻: ≥%d",
+	b.WriteString(liveDimStyle.Render(fmt.Sprintf("看板: %s    頁數: %d    推文門檻: ≥%d",
 		m.cfg.Board, m.cfg.Pages, m.cfg.PushRate)))
 	b.WriteString("\n\n")
 
@@ -222,27 +229,23 @@ func (m liveModel) View() string {
 	b.WriteString("\n")
 
 	// 文章統計
-	b.WriteString(dimStyle.Render(fmt.Sprintf("  文章: %d 篇已解析，共發現 %d 張圖片",
+	b.WriteString(liveDimStyle.Render(fmt.Sprintf("  文章: %d 篇已解析，共發現 %d 張圖片",
 		m.articlesOK, m.imagesTotal)))
 	b.WriteString("\n\n")
 
 	// Worker 狀態
 	if m.maxWorkerID > 0 {
-		workerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-		activeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("14"))
-		idleStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("242"))
-
 		for id := 1; id <= m.maxWorkerID; id++ {
 			status, ok := m.workers[id]
 			if !ok {
 				continue
 			}
 			if status == workerStatusIdle || status == "" {
-				b.WriteString(workerStyle.Render(fmt.Sprintf("  Worker#%d ", id)))
-				b.WriteString(idleStyle.Render(workerStatusIdle))
+				b.WriteString(liveDimStyle.Render(fmt.Sprintf("  Worker#%d ", id)))
+				b.WriteString(liveIdleStyle.Render(workerStatusIdle))
 			} else {
-				b.WriteString(workerStyle.Render(fmt.Sprintf("  Worker#%d ", id)))
-				b.WriteString(activeStyle.Render(truncate(status, 50)))
+				b.WriteString(liveDimStyle.Render(fmt.Sprintf("  Worker#%d ", id)))
+				b.WriteString(liveActiveStyle.Render(truncate(status, 50)))
 			}
 			b.WriteString("\n")
 		}
@@ -251,9 +254,6 @@ func (m liveModel) View() string {
 
 	// 最近事件 log（根據終端高度動態調整顯示行數）
 	if len(m.logs) > 0 {
-		logHeaderStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252"))
-		logStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-
 		// 計算固定區域佔用的行數：
 		// 標題(1) + 設定(1) + 空行(1) + 頁面進度(1) + 下載進度(1) + 統計(1) + 空行(1)
 		// + workers + 空行(1) + 日誌標題(1) + 日誌空行(1) + 底部(1) = 11 + workerCount
@@ -267,10 +267,10 @@ func (m liveModel) View() string {
 
 		visibleLogs := m.logs[len(m.logs)-maxVisible:]
 
-		b.WriteString(logHeaderStyle.Render("最近事件"))
+		b.WriteString(liveLogHeaderStyle.Render("最近事件"))
 		b.WriteString("\n")
 		for _, entry := range visibleLogs {
-			b.WriteString(logStyle.Render("  " + entry))
+			b.WriteString(liveDimStyle.Render("  " + entry))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -278,13 +278,12 @@ func (m liveModel) View() string {
 
 	// 底部
 	if m.done {
-		doneStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("10"))
-		b.WriteString(doneStyle.Render(fmt.Sprintf("完成！%s", m.doneMsg)))
+		b.WriteString(liveDoneStyle.Render(fmt.Sprintf("完成！%s", m.doneMsg)))
 		b.WriteString("\n")
-		b.WriteString(dimStyle.Render("按 Enter 或 q 離開"))
+		b.WriteString(liveDimStyle.Render("按 Enter 或 q 離開"))
 		b.WriteString("\n")
 	} else {
-		b.WriteString(dimStyle.Render("Ctrl+C 優雅停止"))
+		b.WriteString(liveDimStyle.Render("Ctrl+C 優雅停止"))
 		b.WriteString("\n")
 	}
 

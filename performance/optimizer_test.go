@@ -7,8 +7,13 @@ import (
 	"time"
 )
 
+// testLogger 測試用的 noop logger
+type testLogger struct{}
+
+func (testLogger) Info(string, ...any) {}
+
 func TestNewOptimizer(t *testing.T) {
-	opt := NewOptimizer(5 * time.Second)
+	opt := NewOptimizer(5*time.Second, testLogger{})
 	if opt == nil {
 		t.Fatal("NewOptimizer returned nil")
 	}
@@ -18,7 +23,7 @@ func TestNewOptimizer(t *testing.T) {
 }
 
 func TestOptimizer_StartAndStop(t *testing.T) {
-	opt := NewOptimizer(50 * time.Millisecond)
+	opt := NewOptimizer(50*time.Millisecond, testLogger{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -32,7 +37,7 @@ func TestOptimizer_StartAndStop(t *testing.T) {
 }
 
 func TestOptimizer_StopMultipleCalls(t *testing.T) {
-	opt := NewOptimizer(time.Second)
+	opt := NewOptimizer(time.Second, testLogger{})
 	ctx := context.Background()
 	opt.Start(ctx)
 
@@ -43,7 +48,7 @@ func TestOptimizer_StopMultipleCalls(t *testing.T) {
 }
 
 func TestOptimizer_StartContextCancel(t *testing.T) {
-	opt := NewOptimizer(50 * time.Millisecond)
+	opt := NewOptimizer(50*time.Millisecond, testLogger{})
 	ctx, cancel := context.WithCancel(context.Background())
 
 	opt.Start(ctx)
@@ -55,7 +60,7 @@ func TestOptimizer_StartContextCancel(t *testing.T) {
 }
 
 func TestOptimizer_MonitorLogsMemory(t *testing.T) {
-	opt := NewOptimizer(30 * time.Millisecond)
+	opt := NewOptimizer(30*time.Millisecond, testLogger{})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -74,7 +79,7 @@ func TestOptimizer_MonitorLogsMemory(t *testing.T) {
 }
 
 func TestGetMemoryStats(t *testing.T) {
-	opt := NewOptimizer(time.Second)
+	opt := NewOptimizer(time.Second, testLogger{})
 	stats := opt.GetMemoryStats()
 
 	if stats.Alloc == 0 {

@@ -64,7 +64,7 @@ func main() {
 
 // runWithTUI 使用即時進度 TUI 模式執行爬蟲
 func runWithTUI(ctx context.Context, cancel context.CancelFunc, logger ui.Logger, board string, pages, pushRate int, fileURL string, cfg *config.Config) {
-	progressCh := make(chan types.ProgressEvent, 100)
+	progressCh := make(chan types.ProgressEvent, 200)
 
 	c, err := crawler.NewCrawler(board, pages, pushRate, fileURL, cfg,
 		crawler.WithProgress(progressCh),

@@ -5,23 +5,30 @@ package performance
 import (
 	"context"
 	"fmt"
-	"log"
 	"runtime"
 	"sync"
 	"time"
 )
 
+// Logger 是效能監控的最小日誌介面。
+// 在使用處定義介面，避免 import ui 套件。
+type Logger interface {
+	Info(format string, args ...any)
+}
+
 // Optimizer 效能監控器
 type Optimizer struct {
 	monitorInterval time.Duration
+	logger          Logger
 	stopChan        chan struct{}
 	stopOnce        sync.Once
 }
 
 // NewOptimizer 建立新的效能監控器
-func NewOptimizer(monitorInterval time.Duration) *Optimizer {
+func NewOptimizer(monitorInterval time.Duration, logger Logger) *Optimizer {
 	return &Optimizer{
 		monitorInterval: monitorInterval,
+		logger:          logger,
 		stopChan:        make(chan struct{}),
 	}
 }
@@ -40,7 +47,7 @@ func (o *Optimizer) Start(ctx context.Context) {
 				return
 			case <-ticker.C:
 				stats := o.GetMemoryStats()
-				log.Printf("記憶體監控: %s", stats.String())
+				o.logger.Info("記憶體監控: %s", stats.String())
 			}
 		}
 	}()

@@ -487,15 +487,15 @@ if err != nil {
 內建效能監控器提供即時記憶體狀態監控和統計資訊：
 
 ```go
-// 效能監控器初始化
-optimizer := performance.NewOptimizer(30 * time.Second) // 監控間隔
+// 效能監控器初始化（需傳入 Logger，TUI 模式下傳 NoopLogger 避免破壞畫面）
+optimizer := performance.NewOptimizer(30 * time.Second, logger) // 監控間隔, 日誌介面
 
 // 啟動監控
 optimizer.Start(ctx)
 
 // 獲取記憶體統計
 stats := optimizer.GetMemoryStats()
-log.Printf("記憶體狀態: %s", stats.String())
+logger.Info("記憶體狀態: %s", stats.String())
 ```
 
 ### HTTP 連線池配置

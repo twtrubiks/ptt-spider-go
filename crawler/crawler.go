@@ -29,6 +29,8 @@ import (
 	"github.com/twtrubiks/ptt-spider-go/ui"
 )
 
+const defaultMonitorInterval = 30 * time.Second
+
 var (
 	// 用於清理檔名中的非法字元
 	invalidChars = regexp.MustCompile(`[\/:*?"<>|]`)
@@ -113,14 +115,10 @@ func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.C
 		return nil, fmt.Errorf("建立 client 失敗: %w", err)
 	}
 
-	// 建立效能監控器 (監控間隔 30 秒)
-	optimizer := performance.NewOptimizer(30 * time.Second)
-
 	c := &Crawler{
 		client:            client,
 		parser:            ptt.NewParser(),
 		markdownGenerator: markdown.NewGenerator(),
-		optimizer:         optimizer,
 		logger:            ui.NewStyledLogger(),
 		board:             board,
 		pages:             pages,
@@ -132,6 +130,9 @@ func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.C
 	for _, opt := range opts {
 		opt(c)
 	}
+
+	// 在 opts 套用之後建立，確保使用最終的 logger（TUI 模式會注入 NoopLogger）
+	c.optimizer = performance.NewOptimizer(defaultMonitorInterval, c.logger)
 
 	return c, nil
 }
@@ -146,15 +147,14 @@ func NewCrawlerWithDependencies(
 	fileURL string,
 	cfg *config.Config,
 ) *Crawler {
-	// 建立效能優化器
-	optimizer := performance.NewOptimizer(30 * time.Second)
+	logger := ui.NewPlainLogger()
 
 	return &Crawler{
 		client:            client,
 		parser:            parser,
 		markdownGenerator: markdownGen,
-		optimizer:         optimizer,
-		logger:            ui.NewPlainLogger(),
+		optimizer:         performance.NewOptimizer(defaultMonitorInterval, logger),
+		logger:            logger,
 		board:             board,
 		pages:             pages,
 		pushRate:          pushRate,
