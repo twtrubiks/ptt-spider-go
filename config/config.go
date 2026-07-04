@@ -133,8 +133,41 @@ func Load(configPath string) (*Config, error) {
 	// 一次性解析所有 duration 字串
 	config.Crawler.HTTP.parseHTTPDurations()
 
+	// 修正非法數值，避免 panic 或死鎖
+	config.validateAndFix()
+
 	log.Printf("成功載入配置檔案: %s", configPath)
 	return config, nil
+}
+
+// fixIntIfInvalid 檢查數值是否小於下限，是則記錄警告並回傳預設值。
+func fixIntIfInvalid(value, minAllowed, defaultVal int, name string) int {
+	if value < minAllowed {
+		log.Printf("配置 %s 的值 %d 非法（最小值 %d），退回預設值 %d", name, value, minAllowed, defaultVal)
+		return defaultVal
+	}
+	return value
+}
+
+// validateAndFix 驗證數值配置，非法值退回預設並記錄警告。
+// workers/parserCount 必須 >= 1（0 會造成死鎖或 goroutine 洩漏），
+// channel 緩衝區必須 >= 0（負數會造成 make(chan, -1) panic），
+// 延遲毫秒數必須 >= 0。
+func (c *Config) validateAndFix() {
+	defaults := DefaultConfig()
+
+	c.Crawler.Workers = fixIntIfInvalid(c.Crawler.Workers, 1, defaults.Crawler.Workers, "workers")
+	c.Crawler.ParserCount = fixIntIfInvalid(c.Crawler.ParserCount, 1, defaults.Crawler.ParserCount, "parserCount")
+
+	c.Crawler.Channels.ArticleInfo = fixIntIfInvalid(
+		c.Crawler.Channels.ArticleInfo, 0, defaults.Crawler.Channels.ArticleInfo, "channels.articleInfo")
+	c.Crawler.Channels.DownloadTask = fixIntIfInvalid(
+		c.Crawler.Channels.DownloadTask, 0, defaults.Crawler.Channels.DownloadTask, "channels.downloadTask")
+	c.Crawler.Channels.MarkdownTask = fixIntIfInvalid(
+		c.Crawler.Channels.MarkdownTask, 0, defaults.Crawler.Channels.MarkdownTask, "channels.markdownTask")
+
+	c.Crawler.Delays.MinMs = fixIntIfInvalid(c.Crawler.Delays.MinMs, 0, defaults.Crawler.Delays.MinMs, "delays.minMs")
+	c.Crawler.Delays.MaxMs = fixIntIfInvalid(c.Crawler.Delays.MaxMs, 0, defaults.Crawler.Delays.MaxMs, "delays.maxMs")
 }
 
 // ensureParsed 確保 HTTP duration 已被解析。
