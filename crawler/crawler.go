@@ -446,6 +446,10 @@ func (c *Crawler) processArticle(ctx context.Context, article types.ArticleInfo,
 		return // 錯誤已在函數內記錄
 	}
 
+	// 同一張圖可能在原文與推文中重複出現，派發前先去重，
+	// 避免多個 worker 同時寫入同一檔案造成毀損
+	imgURLs = uniqueStrings(imgURLs)
+
 	finalTitle := c.determineFinalTitle(article, parsedTitle)
 
 	c.emit(types.ProgressEvent{
@@ -600,6 +604,20 @@ func (c *Crawler) markdownWorker(ctx context.Context, tasks <-chan types.Markdow
 // cleanFileName 清理檔名中的非法字元
 func cleanFileName(name string) string {
 	return invalidChars.ReplaceAllString(name, "")
+}
+
+// uniqueStrings 去除重複項目，保留首次出現的順序，回傳新的 slice
+func uniqueStrings(items []string) []string {
+	seen := make(map[string]struct{}, len(items))
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		result = append(result, item)
+	}
+	return result
 }
 
 // fetchImage 下載圖片並檢查 HTTP 狀態碼，回傳回應或 nil（表示應跳過）
