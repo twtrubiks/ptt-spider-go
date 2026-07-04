@@ -44,7 +44,31 @@ func TestNewCrawler(t *testing.T) {
 			pages:    0,
 			pushRate: 0,
 			fileURL:  "",
-			wantErr:  false,
+			wantErr:  true, // 看板模式必須指定看板名稱
+		},
+		{
+			name:     "Path traversal board rejected",
+			board:    "../../etc",
+			pages:    1,
+			pushRate: 0,
+			fileURL:  "",
+			wantErr:  true,
+		},
+		{
+			name:     "Board with slash rejected",
+			board:    "beauty/x",
+			pages:    1,
+			pushRate: 0,
+			fileURL:  "",
+			wantErr:  true,
+		},
+		{
+			name:     "Invalid board rejected in file mode",
+			board:    "..\\..\\evil",
+			pages:    0,
+			pushRate: 0,
+			fileURL:  "test.txt",
+			wantErr:  true,
 		},
 	}
 
@@ -89,7 +113,9 @@ func TestCleanFileName(t *testing.T) {
 		expected string
 	}{
 		{"normal_filename.txt", "normal_filename.txt"},
-		{"file/withslash", "filewithslash"}, // Remove backslash since regex doesn't match it
+		{"file/withslash", "filewithslash"},
+		{"file\\withbackslash", "filewithbackslash"}, // Windows 上反斜線是路徑分隔符，必須過濾
+		{"..\\..\\evil", "....evil"},                 // 路徑穿越防護：移除反斜線後不再構成路徑
 		{"file:with*special?chars", "filewithspecialchars"},
 		{"file<with>pipe|chars", "filewithpipechars"},
 		{"file\"with'quotes", "filewith'quotes"}, // quotes are not allowed - " is invalid
@@ -111,14 +137,14 @@ func TestCleanFileName(t *testing.T) {
 
 func TestInvalidCharsRegex(t *testing.T) {
 	// Test the regex pattern directly
-	invalidChars := regexp.MustCompile(`[\/:*?"<>|]`)
+	invalidChars := regexp.MustCompile(`[\\/:*?"<>|]`)
 
 	tests := []struct {
 		char     string
 		expected bool
 	}{
 		{"/", true},
-		{"\\", false}, // backslash is not in the regex pattern
+		{"\\", true}, // Windows 路徑分隔符，必須過濾以防路徑穿越
 		{":", true},
 		{"*", true},
 		{"?", true},

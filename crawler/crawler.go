@@ -32,9 +32,28 @@ import (
 const defaultMonitorInterval = 30 * time.Second
 
 var (
-	// 用於清理檔名中的非法字元
-	invalidChars = regexp.MustCompile(`[\/:*?"<>|]`)
+	// 用於清理檔名中的非法字元（含反斜線，防止 Windows 上的路徑穿越）
+	invalidChars = regexp.MustCompile(`[\\/:*?"<>|]`)
+
+	// 合法的看板名稱白名單，防止 board 參數進入 filepath.Join 造成路徑穿越
+	validBoardPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 )
+
+// validateBoard 驗證看板名稱。
+// 看板模式（fileURL 為空）必須指定看板名稱；
+// 名稱只允許英數字、底線與連字號，防止路徑穿越。
+func validateBoard(board, fileURL string) error {
+	if board == "" {
+		if fileURL == "" {
+			return fmt.Errorf("看板模式必須指定看板名稱")
+		}
+		return nil
+	}
+	if !validBoardPattern.MatchString(board) {
+		return fmt.Errorf("看板名稱 %q 不合法，只允許英數字、底線與連字號", board)
+	}
+	return nil
+}
 
 // randomDelay 根據設定的延遲範圍回傳隨機延遲時間，當 min >= max 時直接回傳 min
 func randomDelay(minDelay, maxDelay time.Duration) time.Duration {
@@ -110,6 +129,10 @@ func (c *Crawler) emit(evt types.ProgressEvent) {
 //   - cfg: 配置物件
 //   - opts: 可選配置（WithProgress、WithLogger 等）
 func NewCrawler(board string, pages, pushRate int, fileURL string, cfg *config.Config, opts ...Option) (*Crawler, error) {
+	if err := validateBoard(board, fileURL); err != nil {
+		return nil, err
+	}
+
 	client, err := ptt.NewClientWithConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("建立 client 失敗: %w", err)
