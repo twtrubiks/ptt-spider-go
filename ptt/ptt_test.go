@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -285,6 +286,29 @@ func TestNewClient(t *testing.T) {
 	if _, ok := client.Transport.(*customTransport); !ok {
 		t.Error("client should use customTransport")
 	}
+}
+
+// TestNewClient_Over18CookieSentToBBS 驗證 over18 cookie 會隨 /bbs/ 路徑的請求送出。
+// 回歸測試：cookie 未設 Path 時會被 cookiejar 限定在 /ask 路徑下，導致 /bbs/ 請求不帶 cookie。
+func TestNewClient_Over18CookieSentToBBS(t *testing.T) {
+	client, err := NewClient()
+	if err != nil {
+		t.Fatalf("NewClient() failed: %v", err)
+	}
+
+	bbsURL, err := url.Parse(constants.PttBaseURL + "/bbs/Gossiping/index.html")
+	if err != nil {
+		t.Fatalf("解析 URL 失敗: %v", err)
+	}
+
+	cookies := client.Jar.Cookies(bbsURL)
+	for _, c := range cookies {
+		if c.Name == constants.Over18CookieName && c.Value == constants.Over18CookieValue {
+			return
+		}
+	}
+	t.Errorf("對 %s 的請求應攜帶 %s=%s cookie，實際 cookies: %v",
+		bbsURL, constants.Over18CookieName, constants.Over18CookieValue, cookies)
 }
 
 func TestNewClientWithConfig(t *testing.T) {

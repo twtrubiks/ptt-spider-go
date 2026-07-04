@@ -40,8 +40,10 @@ func configureCookies(client *http.Client) error {
 		return fmt.Errorf("解析 over18 URL 失敗: %w", err)
 	}
 
+	// Path 必須設為 "/"，否則 cookiejar 會依 RFC 6265 將 cookie 限定在 /ask 路徑下，
+	// 導致 /bbs/ 的請求不會攜帶 over18 cookie
 	jar.SetCookies(overEighteenURL, []*http.Cookie{
-		{Name: constants.Over18CookieName, Value: constants.Over18CookieValue},
+		{Name: constants.Over18CookieName, Value: constants.Over18CookieValue, Path: "/"},
 	})
 
 	client.Jar = jar
