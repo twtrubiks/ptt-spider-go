@@ -145,6 +145,36 @@ func verifyNoImagesContent(t *testing.T, content string) {
 	}
 }
 
+// TestGeneratorImpl_FileNameCollision 驗證不同 URL 推導出相同檔名時，
+// README 的圖片連結會使用與 crawler 下載存檔一致的序號後綴檔名。
+func TestGeneratorImpl_FileNameCollision(t *testing.T) {
+	generator := NewGenerator()
+	tempDir := t.TempDir()
+
+	info := types.MarkdownInfo{
+		Title:      "檔名碰撞測試",
+		ArticleURL: "https://www.ptt.cc/bbs/Beauty/M.1234567890.A.ABC.html",
+		PushCount:  10,
+		ImageURLs: []string{
+			"https://host1.com/a.jpg",
+			"https://host2.com/a.jpg",
+		},
+		SaveDir: tempDir,
+	}
+
+	if err := generator.Generate(info); err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	content := readGeneratedContent(t, filepath.Join(tempDir, "README.md"))
+	if !strings.Contains(content, "![a.jpg](./a.jpg)") {
+		t.Error("Generated markdown should contain first image without suffix")
+	}
+	if !strings.Contains(content, "![a_2.jpg](./a_2.jpg)") {
+		t.Error("Generated markdown should contain second image with _2 suffix")
+	}
+}
+
 func TestNewGenerator(t *testing.T) {
 	generator := NewGenerator()
 	if generator == nil {

@@ -158,6 +158,8 @@ beauty/
     └── image3.gif
 ```
 
+檔名或目錄名發生碰撞時（不同圖片推導出相同檔名、不同文章的標題與推文數相同），會自動加上 `_2`、`_3`… 序號後綴，避免互相覆蓋。
+
 每個 `README.md` 檔案包含：
 
 - 文章標題和原始連結
@@ -254,7 +256,9 @@ ptt-spider-go/
 │   ├── crawler_test.go    # 爬蟲邏輯測試
 │   ├── retry_test.go      # 重試機制測試
 │   ├── crawler_dependency_test.go # 依賴注入測試
-│   └── progress_test.go   # 進度事件發送測試
+│   ├── progress_test.go   # 進度事件發送測試
+│   ├── dedup_test.go      # 圖片 URL 去重測試
+│   └── collision_test.go  # 檔名/目錄名碰撞測試
 ├── ptt/                   # PTT 網站功能
 │   ├── client.go          # HTTP 客戶端管理
 │   ├── parser_impl.go     # 解析器實現 (Parser 介面)
@@ -271,6 +275,9 @@ ptt-spider-go/
 │   ├── optimizer.go      # 記憶體狀態監控和統計資訊
 │   └── optimizer_test.go # 效能監控器測試
 ├── internal/              # 內部共用套件
+│   ├── fileutil/
+│   │   ├── filename.go   # 圖片 URL → 本地檔名推導（crawler/markdown 共用，含碰撞序號）
+│   │   └── filename_test.go # 檔名推導測試
 │   └── ioutil/
 │       └── closer.go     # 共用 CloseWithLog 工具函式
 ├── types/                 # 資料結構定義

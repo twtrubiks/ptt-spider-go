@@ -1,6 +1,7 @@
 package fileutil
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -46,6 +47,51 @@ func TestImageFileName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ImageFileName(tt.imgURL); got != tt.want {
 				t.Errorf("ImageFileName(%q) = %q, want %q", tt.imgURL, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestImageFileNames(t *testing.T) {
+	tests := []struct {
+		name string
+		urls []string
+		want []string
+	}{
+		{
+			name: "無碰撞",
+			urls: []string{"https://i.imgur.com/a.jpg", "https://i.imgur.com/b.png"},
+			want: []string{"a.jpg", "b.png"},
+		},
+		{
+			name: "不同 URL 同檔名加序號後綴",
+			urls: []string{
+				"https://host1.com/a.jpg",
+				"https://host2.com/a.jpg",
+				"https://host3.com/a.jpg",
+			},
+			want: []string{"a.jpg", "a_2.jpg", "a_3.jpg"},
+		},
+		{
+			name: "後綴與既有檔名再碰撞時跳號",
+			urls: []string{
+				"https://host1.com/a_2.jpg",
+				"https://host2.com/a.jpg",
+				"https://host3.com/a.jpg",
+			},
+			want: []string{"a_2.jpg", "a.jpg", "a_3.jpg"},
+		},
+		{
+			name: "空列表",
+			urls: nil,
+			want: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ImageFileNames(tt.urls); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ImageFileNames(%v) = %v, want %v", tt.urls, got, tt.want)
 			}
 		})
 	}

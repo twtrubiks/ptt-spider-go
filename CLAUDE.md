@@ -69,6 +69,7 @@ articleProducer (1 goroutine)
 | `markdown` | 為每篇文章產生帶圖片連結的 Markdown 檔案 |
 | `performance` | 記憶體和 goroutine 監控 |
 | `mocks` | Function field pattern 的 mock 物件（無外部 mock 框架） |
+| `internal/fileutil` | 圖片 URL → 本地檔名推導（含碰撞序號後綴），crawler 與 markdown 共用 |
 | `internal/ioutil` | `CloseWithLog` 統一資源關閉 |
 | `ui` | `Logger` 介面與實作：`PlainLogger`（純文字）、`StyledLogger`（Lip Gloss 彩色輸出）、`NoopLogger`（靜默）；TUI 互動式啟動表單（`huh`）；即時進度 TUI（Bubble Tea） |
 
@@ -135,5 +136,7 @@ mockParser := &mocks.MockParser{
 - 使用 `time.NewTimer()` 而非 `time.After()`（避免 timer 洩漏）
 - 使用 `math/rand/v2` 的 `rand.IntN()`（避免全域鎖競爭）
 - 使用 `ioutil.CloseWithLog()` 關閉所有 `io.Closer` 資源
+- 圖片檔名一律透過 `fileutil.ImageFileNames()` 推導（crawler 下載存檔與 markdown 產生連結必須用同一列表呼叫，檔名才會一致）
+- 同篇文章的圖片 URL 派發前需去重；目錄名由 `Crawler.uniqueDirName` 分配（撞名加序號後綴）
 - 錯誤型別使用不可變模式（`WithContext()` 回傳新副本）
 - `startProducer` 必須在 goroutine 中執行（避免 context 取消時 deadlock），且 `Run()` 需等待該 goroutine 結束才返回（避免 TUI 模式 close(progressCh) 後 producer 的 emit 對已關閉 channel 做 send 造成 panic）

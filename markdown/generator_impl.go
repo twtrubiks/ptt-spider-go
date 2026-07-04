@@ -46,10 +46,9 @@ func (g *GeneratorImpl) Generate(info types.MarkdownInfo) error {
 	// 寫入圖片標題
 	builder.WriteString("## 圖片列表\n\n")
 
-	// 寫入圖片連結，檔名推導與 crawler 下載存檔共用同一邏輯，確保連結不失效
-	for _, imgURL := range info.ImageURLs {
-		imgFileName := fileutil.ImageFileName(imgURL)
-
+	// 寫入圖片連結，檔名推導（含碰撞序號後綴）與 crawler 下載存檔
+	// 共用同一邏輯，確保連結不失效
+	for _, imgFileName := range fileutil.ImageFileNames(info.ImageURLs) {
 		// Markdown 格式：![替代文字](圖片路徑)
 		fmt.Fprintf(&builder, "![%s](./%s)\n", imgFileName, imgFileName)
 	}

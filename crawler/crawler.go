@@ -106,6 +106,11 @@ type Crawler struct {
 	pushRate          int                          // 推文數門檻
 	fileURL           string                       // 檔案路徑（檔案模式時使用）
 	config            *config.Config               // 配置物件
+
+	// 目錄名註冊表：不同文章的標題與推文數可能相同（如 Re: 系列），
+	// 撞名時加序號後綴避免互相覆蓋。contentParser 並行呼叫，需以 mutex 保護。
+	dirMu    sync.Mutex
+	usedDirs map[string]string // 目錄名 → 文章 URL
 }
 
 // emit 發送進度事件到 progress channel，channel 為 nil 時不執行任何操作。
@@ -534,11 +539,14 @@ func (c *Crawler) determineFinalTitle(article types.ArticleInfo, parsedTitle str
 // dispatchTasks 分派下載和 Markdown 任務
 func (c *Crawler) dispatchTasks(ctx context.Context, finalTitle string, article types.ArticleInfo, imgURLs []string, downloadTaskChan chan<- types.DownloadTask, markdownTaskChan chan<- types.MarkdownInfo) {
 	dirName := fmt.Sprintf("%s_%d", cleanFileName(finalTitle), article.PushRate)
-	saveDir := filepath.Join(c.board, dirName)
+	saveDir := filepath.Join(c.board, c.uniqueDirName(dirName, article.URL))
+
+	// 檔名一次算好（含碰撞序號後綴），與 markdown 端共用同一推導邏輯
+	fileNames := fileutil.ImageFileNames(imgURLs)
 
 	// 分派下載任務
-	for _, imgURL := range imgURLs {
-		if c.dispatchDownloadTask(ctx, imgURL, saveDir, downloadTaskChan) {
+	for i, imgURL := range imgURLs {
+		if c.dispatchDownloadTask(ctx, imgURL, filepath.Join(saveDir, fileNames[i]), downloadTaskChan) {
 			return // 被中斷
 		}
 	}
@@ -547,17 +555,40 @@ func (c *Crawler) dispatchTasks(ctx context.Context, finalTitle string, article 
 	c.dispatchMarkdownTask(ctx, finalTitle, article, imgURLs, saveDir, markdownTaskChan)
 }
 
-// dispatchDownloadTask 分派單個下載任務
-func (c *Crawler) dispatchDownloadTask(ctx context.Context, imgURL, saveDir string, downloadTaskChan chan<- types.DownloadTask) bool {
-	fileName := fileutil.ImageFileName(imgURL)
+// uniqueDirName 回傳未被其他文章佔用的目錄名。
+// 目錄名已被不同文章佔用時，加上 _2、_3… 序號後綴；
+// 同一篇文章（相同 URL）重複處理時回傳相同目錄名。
+func (c *Crawler) uniqueDirName(dirName, articleURL string) string {
+	c.dirMu.Lock()
+	defer c.dirMu.Unlock()
 
+	if c.usedDirs == nil {
+		c.usedDirs = make(map[string]string)
+	}
+
+	name := dirName
+	for i := 2; ; i++ {
+		owner, taken := c.usedDirs[name]
+		if !taken {
+			c.usedDirs[name] = articleURL
+			return name
+		}
+		if owner == articleURL {
+			return name
+		}
+		name = fmt.Sprintf("%s_%d", dirName, i)
+	}
+}
+
+// dispatchDownloadTask 分派單個下載任務
+func (c *Crawler) dispatchDownloadTask(ctx context.Context, imgURL, savePath string, downloadTaskChan chan<- types.DownloadTask) bool {
 	select {
 	case <-ctx.Done():
 		c.logger.Warn("分派下載任務時被中斷")
 		return true
 	case downloadTaskChan <- types.DownloadTask{
 		ImageURL: imgURL,
-		SavePath: filepath.Join(saveDir, fileName),
+		SavePath: savePath,
 	}:
 		return false
 	}
