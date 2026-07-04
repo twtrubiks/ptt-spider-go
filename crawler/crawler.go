@@ -10,7 +10,6 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -21,6 +20,7 @@ import (
 	"github.com/twtrubiks/ptt-spider-go/config"
 	"github.com/twtrubiks/ptt-spider-go/constants"
 	"github.com/twtrubiks/ptt-spider-go/interfaces"
+	"github.com/twtrubiks/ptt-spider-go/internal/fileutil"
 	"github.com/twtrubiks/ptt-spider-go/internal/ioutil"
 	"github.com/twtrubiks/ptt-spider-go/markdown"
 	"github.com/twtrubiks/ptt-spider-go/performance"
@@ -545,7 +545,7 @@ func (c *Crawler) dispatchTasks(ctx context.Context, finalTitle string, article 
 
 // dispatchDownloadTask 分派單個下載任務
 func (c *Crawler) dispatchDownloadTask(ctx context.Context, imgURL, saveDir string, downloadTaskChan chan<- types.DownloadTask) bool {
-	fileName := c.generateFileName(imgURL)
+	fileName := fileutil.ImageFileName(imgURL)
 
 	select {
 	case <-ctx.Done():
@@ -557,17 +557,6 @@ func (c *Crawler) dispatchDownloadTask(ctx context.Context, imgURL, saveDir stri
 	}:
 		return false
 	}
-}
-
-// generateFileName 生成檔案名稱
-func (c *Crawler) generateFileName(imgURL string) string {
-	fileName := filepath.Base(imgURL)
-	if strings.Contains(imgURL, "imgur.com") && !strings.Contains(fileName, ".") {
-		if parsedURL, err := url.Parse(imgURL); err == nil {
-			fileName = filepath.Base(parsedURL.Path) + ".jpg"
-		}
-	}
-	return fileName
 }
 
 // dispatchMarkdownTask 分派 Markdown 任務

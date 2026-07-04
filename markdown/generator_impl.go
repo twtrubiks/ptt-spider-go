@@ -10,6 +10,7 @@ import (
 	"github.com/twtrubiks/ptt-spider-go/constants"
 	"github.com/twtrubiks/ptt-spider-go/errors"
 	"github.com/twtrubiks/ptt-spider-go/interfaces"
+	"github.com/twtrubiks/ptt-spider-go/internal/fileutil"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
@@ -45,14 +46,9 @@ func (g *GeneratorImpl) Generate(info types.MarkdownInfo) error {
 	// 寫入圖片標題
 	builder.WriteString("## 圖片列表\n\n")
 
-	// 寫入圖片連結
+	// 寫入圖片連結，檔名推導與 crawler 下載存檔共用同一邏輯，確保連結不失效
 	for _, imgURL := range info.ImageURLs {
-		// 使用相對路徑來引用本地圖片
-		imgFileName := filepath.Base(imgURL)
-		// 處理沒有副檔名的 imgur 連結檔名
-		if strings.Contains(imgURL, "imgur.com") && !strings.Contains(imgFileName, ".") {
-			imgFileName += ".jpg"
-		}
+		imgFileName := fileutil.ImageFileName(imgURL)
 
 		// Markdown 格式：![替代文字](圖片路徑)
 		fmt.Fprintf(&builder, "![%s](./%s)\n", imgFileName, imgFileName)
