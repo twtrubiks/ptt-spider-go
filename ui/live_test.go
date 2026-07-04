@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/twtrubiks/ptt-spider-go/types"
@@ -336,6 +337,8 @@ func TestTruncate(t *testing.T) {
 		{"this is a longer string", 10, "this is..."},
 		{"abc", 3, "abc"},
 		{"abcd", 3, "..."},
+		{"中文標題不會被截壞成亂碼", 8, "中文標題不..."}, // 以 rune 為單位截斷，不能切壞 UTF-8
+		{"[正妹] 測試", 20, "[正妹] 測試"},
 	}
 
 	for _, tt := range tests {
@@ -343,6 +346,9 @@ func TestTruncate(t *testing.T) {
 			got := truncate(tt.input, tt.maxLen)
 			if got != tt.want {
 				t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.want)
+			}
+			if !utf8.ValidString(got) {
+				t.Errorf("truncate(%q, %d) 產生非法 UTF-8: %q", tt.input, tt.maxLen, got)
 			}
 		})
 	}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/twtrubiks/ptt-spider-go/config"
 	"github.com/twtrubiks/ptt-spider-go/mocks"
+	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
 func TestNewCrawler(t *testing.T) {
@@ -444,5 +445,111 @@ func TestSaveToFile_Success(t *testing.T) {
 	}
 	if string(data) != content {
 		t.Errorf("檔案內容 = %q, want %q", string(data), content)
+	}
+}
+
+// TestArticleProducer_StopsAtFirstPage 驗證 pages 大於看板實際頁數時，
+// 不會請求 index0.html、index-1.html 等不存在的頁面。
+func TestArticleProducer_StopsAtFirstPage(t *testing.T) {
+	var requestedURLs []string
+	client := &mocks.MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			requestedURLs = append(requestedURLs, req.URL.String())
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("<html></html>")),
+			}, nil
+		},
+	}
+	parser := &mocks.MockParser{
+		ParseMaxPageFunc: func(_ io.Reader) (int, error) { return 2, nil },
+		ParseArticlesFunc: func(_ io.Reader) ([]types.ArticleInfo, error) {
+			return nil, nil
+		},
+	}
+
+	c := NewCrawlerWithDependencies(
+		client, parser, mocks.NewMockMarkdownGenerator(),
+		"test", 5, 0, "", config.DefaultConfig(),
+	)
+
+	ch := make(chan types.ArticleInfo, 10)
+	c.articleProducer(context.Background(), ch)
+
+	for _, u := range requestedURLs {
+		if strings.Contains(u, "index0.html") || strings.Contains(u, "index-") {
+			t.Errorf("不應請求不存在的頁面: %s", u)
+		}
+	}
+	// index.html（取最大頁數）+ index2.html + index1.html
+	if len(requestedURLs) != 3 {
+		t.Errorf("期望請求 3 次，實際 %d 次: %v", len(requestedURLs), requestedURLs)
+	}
+}
+
+// TestFetchAndParseArticle_Non200 驗證文章頁回應非 200 時回傳錯誤，
+// 與 fetchMaxPage 的狀態碼檢查行為一致。
+func TestFetchAndParseArticle_Non200(t *testing.T) {
+	client := &mocks.MockHTTPClient{
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusNotFound,
+				Body:       io.NopCloser(strings.NewReader("not found")),
+			}, nil
+		},
+	}
+
+	c := NewCrawlerWithDependencies(
+		client, mocks.NewMockParser(), mocks.NewMockMarkdownGenerator(),
+		"test", 1, 0, "", config.DefaultConfig(),
+	)
+
+	_, _, err := c.fetchAndParseArticle(context.Background(), types.ArticleInfo{
+		URL: "https://www.ptt.cc/bbs/test/M.123.A.html",
+	})
+	if err == nil {
+		t.Error("HTTP 404 應回傳錯誤，但收到 nil")
+	}
+}
+
+// TestArticleProducerFromFile_RequiresURLPrefix 驗證檔案模式只接受
+// 以 PTT 文章網址開頭的行，含子字串但非開頭的行應被略過。
+func TestArticleProducerFromFile_RequiresURLPrefix(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "urls.txt")
+	content := strings.Join([]string{
+		"https://www.ptt.cc/bbs/Beauty/M.111.A.html",
+		"  https://www.ptt.cc/bbs/Beauty/M.222.A.html  ",
+		"參考 https://www.ptt.cc/bbs/Beauty/M.333.A.html 這篇",
+		"https://evil.example.com/?u=https://www.ptt.cc/bbs/x",
+		"",
+	}, "\n")
+	if err := os.WriteFile(tmpFile, []byte(content), 0644); err != nil {
+		t.Fatalf("建立測試檔失敗: %v", err)
+	}
+
+	c := NewCrawlerWithDependencies(
+		mocks.NewMockHTTPClient(), mocks.NewMockParser(), mocks.NewMockMarkdownGenerator(),
+		"test", 0, 0, tmpFile, config.DefaultConfig(),
+	)
+
+	ch := make(chan types.ArticleInfo, 10)
+	c.articleProducerFromFile(context.Background(), ch)
+
+	var got []string
+	for a := range ch {
+		got = append(got, a.URL)
+	}
+
+	want := []string{
+		"https://www.ptt.cc/bbs/Beauty/M.111.A.html",
+		"https://www.ptt.cc/bbs/Beauty/M.222.A.html",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("期望 %d 個 URL，實際 %d 個: %v", len(want), len(got), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("URL[%d] = %q, want %q", i, got[i], want[i])
+		}
 	}
 }

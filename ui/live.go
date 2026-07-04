@@ -301,12 +301,13 @@ func waitForProgress(ch <-chan types.ProgressEvent) tea.Cmd {
 	}
 }
 
-// truncate 截斷字串到指定長度
+// truncate 截斷字串到指定的 rune 數，以 rune 為單位避免切壞 UTF-8 多位元組字元
 func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen-3] + "..."
+	return string(runes[:maxLen-3]) + "..."
 }
 
 // RunLiveTUI 啟動即時進度 TUI，阻塞直到爬蟲完成或使用者中斷。

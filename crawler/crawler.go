@@ -354,6 +354,11 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 		}
 
 		currentPage := maxPage - i
+		if currentPage < 1 {
+			// 已越過看板第一頁，index0.html 等頁面不存在
+			c.logger.Warn("要求頁數 %d 超過看板實際頁數 %d，提前結束", c.pages, maxPage)
+			return
+		}
 		pageURL := fmt.Sprintf("%s/bbs/%s/index%d.html", constants.PttBaseURL, c.board, currentPage)
 		c.logger.Info("正在爬取看板列表: %s", pageURL)
 
@@ -488,6 +493,12 @@ func (c *Crawler) fetchAndParseArticle(ctx context.Context, article types.Articl
 		return "", nil, err
 	}
 	defer ioutil.CloseWithLog(resp.Body, "回應 Body")
+
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("HTTP 狀態錯誤: %d", resp.StatusCode)
+		c.logger.Error("爬取文章頁失敗: %s, 錯誤: %v", article.URL, err)
+		return "", nil, err
+	}
 
 	parsedTitle, imgURLs, err := c.parser.ParseArticleContent(resp.Body)
 	if err != nil {
@@ -747,7 +758,7 @@ func (c *Crawler) articleProducerFromFile(ctx context.Context, articleInfoChan c
 		}
 
 		line := strings.TrimSpace(scanner.Text())
-		if strings.Contains(line, "https://www.ptt.cc/bbs/") {
+		if strings.HasPrefix(line, constants.PttBaseURL+"/bbs/") {
 			// 檔案模式下，推文數為 0，因為我們需要下載所有指定的文章
 			select {
 			case <-ctx.Done():
