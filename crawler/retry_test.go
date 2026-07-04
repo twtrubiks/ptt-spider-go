@@ -11,7 +11,49 @@ import (
 
 	"github.com/twtrubiks/ptt-spider-go/constants"
 	"github.com/twtrubiks/ptt-spider-go/mocks"
+	"github.com/twtrubiks/ptt-spider-go/ui"
 )
+
+// TestDoWithRetry_UsesInjectedLogger 驗證 429 重試訊息透過注入的 Logger 輸出，
+// 而非全域 log.Printf（後者在 TUI 模式會繞過 NoopLogger 破壞畫面）。
+func TestDoWithRetry_UsesInjectedLogger(t *testing.T) {
+	var warnCalled bool
+	logger := &mocks.MockLogger{
+		WarnFunc: func(_ string, _ ...any) {
+			warnCalled = true
+		},
+	}
+
+	callCount := 0
+	client := &mocks.MockHTTPClient{
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
+			callCount++
+			if callCount == 1 {
+				return &http.Response{
+					StatusCode: http.StatusTooManyRequests,
+					Header:     http.Header{"Retry-After": []string{"0"}},
+					Body:       io.NopCloser(strings.NewReader("")),
+				}, nil
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("ok")),
+			}, nil
+		},
+	}
+
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
+	resp, err := doWithRetry(context.Background(), client, req, logger)
+
+	if err != nil {
+		t.Fatalf("期望無錯誤，但收到: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if !warnCalled {
+		t.Error("429 重試訊息應透過注入的 Logger.Warn 輸出")
+	}
+}
 
 func TestDoWithRetry_ImmediateSuccess(t *testing.T) {
 	client := &mocks.MockHTTPClient{
@@ -24,7 +66,7 @@ func TestDoWithRetry_ImmediateSuccess(t *testing.T) {
 	}
 
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
-	resp, err := doWithRetry(context.Background(), client, req)
+	resp, err := doWithRetry(context.Background(), client, req, ui.NewNoopLogger())
 
 	if err != nil {
 		t.Fatalf("期望無錯誤，但收到: %v", err)
@@ -55,7 +97,7 @@ func TestDoWithRetry_429ThenSuccess(t *testing.T) {
 	}
 
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
-	resp, err := doWithRetry(context.Background(), client, req)
+	resp, err := doWithRetry(context.Background(), client, req, ui.NewNoopLogger())
 
 	if err != nil {
 		t.Fatalf("期望無錯誤，但收到: %v", err)
@@ -83,7 +125,7 @@ func TestDoWithRetry_ExhaustedRetries(t *testing.T) {
 	}
 
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
-	resp, err := doWithRetry(context.Background(), client, req)
+	resp, err := doWithRetry(context.Background(), client, req, ui.NewNoopLogger())
 
 	if err == nil {
 		t.Fatal("期望收到錯誤，但沒有")
@@ -122,7 +164,7 @@ func TestDoWithRetry_ContextCancelled(t *testing.T) {
 	}
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", "http://example.com", nil)
-	resp, err := doWithRetry(ctx, client, req)
+	resp, err := doWithRetry(ctx, client, req, ui.NewNoopLogger())
 
 	if err == nil {
 		t.Fatal("期望收到錯誤，但沒有")
@@ -144,7 +186,7 @@ func TestDoWithRetry_NetworkError(t *testing.T) {
 	}
 
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
-	resp, err := doWithRetry(context.Background(), client, req)
+	resp, err := doWithRetry(context.Background(), client, req, ui.NewNoopLogger())
 
 	if err == nil {
 		t.Fatal("期望收到錯誤，但沒有")
@@ -168,7 +210,7 @@ func TestDoWithRetry_Non429ErrorCode(t *testing.T) {
 	}
 
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
-	resp, err := doWithRetry(context.Background(), client, req)
+	resp, err := doWithRetry(context.Background(), client, req, ui.NewNoopLogger())
 
 	if err != nil {
 		t.Fatalf("期望無錯誤，但收到: %v", err)
@@ -200,7 +242,7 @@ func TestDoWithRetry_RetryAfterHeaderSeconds(t *testing.T) {
 
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", "http://example.com", nil)
 	start := time.Now()
-	resp, err := doWithRetry(context.Background(), client, req)
+	resp, err := doWithRetry(context.Background(), client, req, ui.NewNoopLogger())
 	elapsed := time.Since(start)
 
 	if err != nil {

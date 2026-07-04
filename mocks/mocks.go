@@ -63,6 +63,42 @@ func (m *MockMarkdownGenerator) Generate(info types.MarkdownInfo) error {
 	return nil
 }
 
+// MockLogger 模擬 Logger，可捕捉各等級的日誌呼叫
+type MockLogger struct {
+	InfoFunc    func(format string, args ...any)
+	SuccessFunc func(format string, args ...any)
+	ErrorFunc   func(format string, args ...any)
+	WarnFunc    func(format string, args ...any)
+}
+
+// Info 呼叫 InfoFunc（若已設定）
+func (m *MockLogger) Info(format string, args ...any) {
+	if m.InfoFunc != nil {
+		m.InfoFunc(format, args...)
+	}
+}
+
+// Success 呼叫 SuccessFunc（若已設定）
+func (m *MockLogger) Success(format string, args ...any) {
+	if m.SuccessFunc != nil {
+		m.SuccessFunc(format, args...)
+	}
+}
+
+// Error 呼叫 ErrorFunc（若已設定）
+func (m *MockLogger) Error(format string, args ...any) {
+	if m.ErrorFunc != nil {
+		m.ErrorFunc(format, args...)
+	}
+}
+
+// Warn 呼叫 WarnFunc（若已設定）
+func (m *MockLogger) Warn(format string, args ...any) {
+	if m.WarnFunc != nil {
+		m.WarnFunc(format, args...)
+	}
+}
+
 // NewMockHTTPClient 建立新的模擬 HTTP 客戶端
 func NewMockHTTPClient() *MockHTTPClient {
 	return &MockHTTPClient{}

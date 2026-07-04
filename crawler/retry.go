@@ -3,7 +3,6 @@ package crawler
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -11,12 +10,14 @@ import (
 	"github.com/twtrubiks/ptt-spider-go/constants"
 	"github.com/twtrubiks/ptt-spider-go/interfaces"
 	"github.com/twtrubiks/ptt-spider-go/internal/ioutil"
+	"github.com/twtrubiks/ptt-spider-go/ui"
 )
 
 // doWithRetry 包裝 client.Do，收到 HTTP 429 時自動以指數退避重試。
 // 非 429 錯誤碼或網路錯誤不會重試，直接回傳。
 // 重試用盡後回傳 nil 和錯誤。
-func doWithRetry(ctx context.Context, client interfaces.HTTPClient, req *http.Request) (*http.Response, error) {
+// 重試訊息透過注入的 logger 輸出，避免 TUI 模式下直寫 stderr 破壞畫面。
+func doWithRetry(ctx context.Context, client interfaces.HTTPClient, req *http.Request, logger ui.Logger) (*http.Response, error) {
 	for attempt := 1; attempt <= constants.RetryMaxAttempts; attempt++ {
 		resp, err := client.Do(req)
 		if err != nil {
@@ -29,7 +30,7 @@ func doWithRetry(ctx context.Context, client interfaces.HTTPClient, req *http.Re
 
 		// 429: 計算退避時間並重試
 		delay := calcRetryDelay(resp, attempt)
-		log.Printf("收到 HTTP 429，第 %d/%d 次重試，等待 %v: %s", attempt, constants.RetryMaxAttempts, delay, req.URL)
+		logger.Warn("收到 HTTP 429，第 %d/%d 次重試，等待 %v: %s", attempt, constants.RetryMaxAttempts, delay, req.URL)
 
 		ioutil.CloseWithLog(resp.Body, "429 重試回應 Body")
 

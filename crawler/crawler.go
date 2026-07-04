@@ -292,7 +292,7 @@ func (c *Crawler) fetchMaxPage(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("建立請求失敗: %w", err)
 	}
 
-	resp, err := doWithRetry(ctx, c.client, req)
+	resp, err := doWithRetry(ctx, c.client, req, c.logger)
 	if err != nil {
 		return 0, fmt.Errorf("發送請求失敗: %w", err)
 	}
@@ -340,7 +340,7 @@ func (c *Crawler) articleProducer(ctx context.Context, articleInfoChan chan<- ty
 			continue
 		}
 
-		resp, err := doWithRetry(ctx, c.client, req)
+		resp, err := doWithRetry(ctx, c.client, req, c.logger)
 		if err != nil {
 			if ctx.Err() != nil {
 				c.logger.Warn("列表頁爬取被中斷")
@@ -455,7 +455,7 @@ func (c *Crawler) fetchAndParseArticle(ctx context.Context, article types.Articl
 		return "", nil, err
 	}
 
-	resp, err := doWithRetry(ctx, c.client, req)
+	resp, err := doWithRetry(ctx, c.client, req, c.logger)
 	if err != nil {
 		if ctx.Err() != nil {
 			c.logger.Warn("文章爬取被中斷")
@@ -578,7 +578,7 @@ func (c *Crawler) fetchImage(ctx context.Context, id int, imageURL string) *http
 		return nil
 	}
 
-	resp, err := doWithRetry(ctx, c.client, req)
+	resp, err := doWithRetry(ctx, c.client, req, c.logger)
 	if err != nil {
 		if ctx.Err() != nil {
 			c.logger.Warn("下載工人 #%d 下載被中斷", id)
