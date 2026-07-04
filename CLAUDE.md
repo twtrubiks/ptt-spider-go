@@ -136,4 +136,4 @@ mockParser := &mocks.MockParser{
 - 使用 `math/rand/v2` 的 `rand.IntN()`（避免全域鎖競爭）
 - 使用 `ioutil.CloseWithLog()` 關閉所有 `io.Closer` 資源
 - 錯誤型別使用不可變模式（`WithContext()` 回傳新副本）
-- `startProducer` 必須在 goroutine 中執行（避免 context 取消時 deadlock）
+- `startProducer` 必須在 goroutine 中執行（避免 context 取消時 deadlock），且 `Run()` 需等待該 goroutine 結束才返回（避免 TUI 模式 close(progressCh) 後 producer 的 emit 對已關閉 channel 做 send 造成 panic）

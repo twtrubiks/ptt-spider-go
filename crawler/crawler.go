@@ -297,10 +297,19 @@ func (c *Crawler) Run(ctx context.Context) {
 	workers := c.startWorkers(ctx, channels)
 
 	// 非同步啟動生產者，避免 context 取消時阻塞在 channel 寫入造成 deadlock
-	go c.startProducer(ctx, channels.ArticleInfo)
+	producerDone := make(chan struct{})
+	go func() {
+		defer close(producerDone)
+		c.startProducer(ctx, channels.ArticleInfo)
+	}()
 
 	// 等待完成和清理
 	c.waitAndCleanup(workers, channels)
+
+	// ctx 取消時 workers 會提前退出，此時 producer 可能仍在執行。
+	// 必須等它結束才能返回，否則 TUI 模式在 Run 返回後關閉 progress channel，
+	// producer 的 emit 會對已關閉的 channel 做 send 而 panic。
+	<-producerDone
 
 	// 記錄完成信息和最終記憶體狀態
 	c.logCompletion(ctx, startTime)
