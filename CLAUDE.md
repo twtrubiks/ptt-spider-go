@@ -64,7 +64,7 @@ articleProducer (1 goroutine)
 | `ptt` | PTT 網站整合：HTTP client（含連線池和 Over18 cookie）、HTML 解析（goquery） |
 | `interfaces` | 3 個核心介面：`HTTPClient`、`Parser`、`MarkdownGenerator` |
 | `types` | 資料結構：`ArticleInfo`、`DownloadTask`、`MarkdownInfo`、`ProgressEvent` |
-| `config` | YAML 設定載入，失敗時自動降級為預設值 |
+| `config` | YAML 設定載入，失敗時自動降級為預設值；數值驗證，非法值退回預設 |
 | `errors` | 5 種結構化錯誤型別，支援 `errors.As`/`errors.Is` |
 | `markdown` | 為每篇文章產生帶圖片連結的 Markdown 檔案 |
 | `performance` | 記憶體和 goroutine 監控 |

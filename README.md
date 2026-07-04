@@ -77,7 +77,7 @@ go run main.go [參數]
 
 | 參數 | 類型 | 預設值 | 說明 |
 |------|------|--------|------|
-| `-board` | string | "beauty" | 看板名稱（支援任意公開看板） |
+| `-board` | string | "beauty" | 看板名稱（支援任意公開看板；僅允許英數字、底線與連字號） |
 | `-pages` | int | 3 | 要爬取的頁數（從最新頁開始） |
 | `-push` | int | 10 | 推文數門檻（篩選熱門文章） |
 | `-file` | string | "" | 文章 URL 檔案路徑（啟用檔案模式） |
@@ -229,6 +229,7 @@ crawler:
 ### 配置載入機制
 
 - **自動降級**: 如果配置檔案不存在，自動使用預設配置；讀取或解析失敗時回傳錯誤
+- **數值驗證**: 載入時驗證數值配置（workers、parserCount 最小 1；channels、delays 不可為負數），非法值記錄警告並退回預設，避免執行期 panic 或死鎖
 - **部分配置**: 可以只配置部分參數，其他參數使用預設值
 - **向下相容**: 沒有配置檔案時，程式依然正常運行
 
@@ -300,7 +301,7 @@ ptt-spider-go/
 
 1. **Article Producer**: 負責產生文章 URL 列表
 2. **Content Parser**: 解析文章內容並提取圖片 URL（10 個併發）
-3. **Download Worker**: 執行圖片下載任務（10 個併發），內部拆分為 `fetchImage` (HTTP 下載) 和 `saveToFile` (檔案寫入)
+3. **Download Worker**: 執行圖片下載任務（10 個併發），內部拆分為 `fetchImage` (HTTP 下載) 和 `saveToFile` (檔案寫入)；單張圖片下載上限 50MB，超限或中途失敗的半截檔會被刪除
 4. **Markdown Worker**: 生成 Markdown 檔案（1 個）
 
 ## 🔧 核心功能
