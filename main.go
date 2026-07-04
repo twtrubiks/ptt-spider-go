@@ -76,9 +76,11 @@ func runWithTUI(ctx context.Context, cancel context.CancelFunc, logger ui.Logger
 	}
 
 	// 在背景執行爬蟲，完成後關閉 progress channel
+	done := make(chan struct{})
 	go func() {
 		c.Run(ctx)
 		close(progressCh)
+		close(done)
 	}()
 
 	liveCfg := ui.LiveConfig{
@@ -90,6 +92,15 @@ func runWithTUI(ctx context.Context, cancel context.CancelFunc, logger ui.Logger
 	if err := ui.RunLiveTUI(liveCfg, progressCh, cancel); err != nil {
 		logger.Error("TUI 錯誤: %v", err)
 		os.Exit(1)
+	}
+
+	// TUI 退出後等待爬蟲收尾（waitAndCleanup），
+	// 避免 Ctrl+C 時直接退出留下寫到一半的圖片檔
+	select {
+	case <-done:
+	default:
+		logger.Warn("正在等待爬蟲收尾...")
+		<-done
 	}
 }
 
