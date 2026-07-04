@@ -17,7 +17,7 @@ func TestGeneratorImpl_Generate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	t.Run("basic markdown generation", func(t *testing.T) {
 		testBasicMarkdownGeneration(t, generator, tempDir)
@@ -155,7 +155,7 @@ func TestNewGenerator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	info := types.MarkdownInfo{
 		Title:      "Test",

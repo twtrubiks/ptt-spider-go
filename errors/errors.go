@@ -1,3 +1,4 @@
+// Package errors 定義爬蟲的結構化錯誤型別，支援 errors.As/errors.Is 判斷。
 package errors
 
 import (

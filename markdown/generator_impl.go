@@ -1,3 +1,4 @@
+// Package markdown 為每篇文章產生帶圖片連結的 Markdown 檔案。
 package markdown
 
 import (
@@ -35,11 +36,11 @@ func (g *GeneratorImpl) Generate(info types.MarkdownInfo) error {
 	var builder strings.Builder
 
 	// 寫入標題
-	builder.WriteString(fmt.Sprintf("# %s\n\n", info.Title))
+	fmt.Fprintf(&builder, "# %s\n\n", info.Title)
 
 	// 寫入文章資訊
-	builder.WriteString(fmt.Sprintf("- **文章網址**: [%s](%s)\n", info.ArticleURL, info.ArticleURL))
-	builder.WriteString(fmt.Sprintf("- **推文數量**: %d\n\n", info.PushCount))
+	fmt.Fprintf(&builder, "- **文章網址**: [%s](%s)\n", info.ArticleURL, info.ArticleURL)
+	fmt.Fprintf(&builder, "- **推文數量**: %d\n\n", info.PushCount)
 
 	// 寫入圖片標題
 	builder.WriteString("## 圖片列表\n\n")
@@ -54,7 +55,7 @@ func (g *GeneratorImpl) Generate(info types.MarkdownInfo) error {
 		}
 
 		// Markdown 格式：![替代文字](圖片路徑)
-		builder.WriteString(fmt.Sprintf("![%s](./%s)\n", imgFileName, imgFileName))
+		fmt.Fprintf(&builder, "![%s](./%s)\n", imgFileName, imgFileName)
 	}
 
 	// 將組合好的內容寫入檔案

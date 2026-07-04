@@ -183,7 +183,7 @@ func TestGetMaxPage(t *testing.T) {
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if strings.Contains(r.URL.Path, "/bbs/Beauty/index.html") {
-						w.Write([]byte(`
+						_, _ = w.Write([]byte(`
 							<html>
 								<div class="btn-group-paging">
 									<a class="btn wide" href="/bbs/Beauty/index1234.html">‹ 上頁</a>
@@ -200,8 +200,8 @@ func TestGetMaxPage(t *testing.T) {
 		{
 			name: "No prev page button",
 			setupServer: func() *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					w.Write([]byte(`<html><body>No buttons here</body></html>`))
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					_, _ = w.Write([]byte(`<html><body>No buttons here</body></html>`))
 				}))
 			},
 			expectPage: 0,
@@ -210,7 +210,7 @@ func TestGetMaxPage(t *testing.T) {
 		{
 			name: "Server error",
 			setupServer: func() *httptest.Server {
-				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
 				}))
 			},
@@ -248,7 +248,7 @@ func TestGetMaxPage(t *testing.T) {
 			if err != nil && tt.expectErr {
 				return // Expected error case
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Test the parsing logic manually since we can't easily mock PttHead
 			if resp.StatusCode == http.StatusOK && !tt.expectErr {
@@ -455,7 +455,7 @@ func TestCustomTransportRoundTrip(t *testing.T) {
 			t.Errorf("Expected Chrome User-Agent, got: %s", userAgent)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	}))
 	defer server.Close()
 
@@ -473,7 +473,7 @@ func TestCustomTransportRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RoundTrip failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected 200 OK, got %d", resp.StatusCode)

@@ -22,7 +22,7 @@ func TestNewOptimizer(t *testing.T) {
 	}
 }
 
-func TestOptimizer_StartAndStop(t *testing.T) {
+func TestOptimizer_StartAndStop(_ *testing.T) {
 	opt := NewOptimizer(50*time.Millisecond, testLogger{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -36,7 +36,7 @@ func TestOptimizer_StartAndStop(t *testing.T) {
 	opt.Stop()
 }
 
-func TestOptimizer_StopMultipleCalls(t *testing.T) {
+func TestOptimizer_StopMultipleCalls(_ *testing.T) {
 	opt := NewOptimizer(time.Second, testLogger{})
 	ctx := context.Background()
 	opt.Start(ctx)
@@ -47,7 +47,7 @@ func TestOptimizer_StopMultipleCalls(t *testing.T) {
 	opt.Stop()
 }
 
-func TestOptimizer_StartContextCancel(t *testing.T) {
+func TestOptimizer_StartContextCancel(_ *testing.T) {
 	opt := NewOptimizer(50*time.Millisecond, testLogger{})
 	ctx, cancel := context.WithCancel(context.Background())
 

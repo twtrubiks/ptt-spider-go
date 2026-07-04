@@ -1,3 +1,4 @@
+// Package interfaces 定義爬蟲核心元件的抽象介面，供依賴注入與測試替換使用。
 package interfaces
 
 import (

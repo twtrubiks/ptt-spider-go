@@ -57,7 +57,7 @@ func TestDoWithRetry_UsesInjectedLogger(t *testing.T) {
 
 func TestDoWithRetry_ImmediateSuccess(t *testing.T) {
 	client := &mocks.MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Body:       io.NopCloser(strings.NewReader("ok")),
@@ -74,13 +74,13 @@ func TestDoWithRetry_ImmediateSuccess(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("期望狀態碼 200，但收到: %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }
 
 func TestDoWithRetry_429ThenSuccess(t *testing.T) {
 	callCount := 0
 	client := &mocks.MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			callCount++
 			if callCount == 1 {
 				return &http.Response{
@@ -108,13 +108,13 @@ func TestDoWithRetry_429ThenSuccess(t *testing.T) {
 	if callCount != 2 {
 		t.Fatalf("期望呼叫 2 次，但實際呼叫 %d 次", callCount)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }
 
 func TestDoWithRetry_ExhaustedRetries(t *testing.T) {
 	callCount := 0
 	client := &mocks.MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			callCount++
 			return &http.Response{
 				StatusCode: http.StatusTooManyRequests,
@@ -145,7 +145,7 @@ func TestDoWithRetry_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	callCount := 0
 	client := &mocks.MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			callCount++
 			if callCount == 1 {
 				// 第一次回傳 429 後取消 context
@@ -180,7 +180,7 @@ func TestDoWithRetry_ContextCancelled(t *testing.T) {
 func TestDoWithRetry_NetworkError(t *testing.T) {
 	networkErr := errors.New("connection refused")
 	client := &mocks.MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return nil, networkErr
 		},
 	}
@@ -201,7 +201,7 @@ func TestDoWithRetry_NetworkError(t *testing.T) {
 
 func TestDoWithRetry_Non429ErrorCode(t *testing.T) {
 	client := &mocks.MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			return &http.Response{
 				StatusCode: http.StatusNotFound,
 				Body:       io.NopCloser(strings.NewReader("not found")),
@@ -218,13 +218,13 @@ func TestDoWithRetry_Non429ErrorCode(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("期望狀態碼 404，但收到: %d", resp.StatusCode)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }
 
 func TestDoWithRetry_RetryAfterHeaderSeconds(t *testing.T) {
 	callCount := 0
 	client := &mocks.MockHTTPClient{
-		DoFunc: func(req *http.Request) (*http.Response, error) {
+		DoFunc: func(_ *http.Request) (*http.Response, error) {
 			callCount++
 			if callCount == 1 {
 				return &http.Response{
@@ -255,7 +255,7 @@ func TestDoWithRetry_RetryAfterHeaderSeconds(t *testing.T) {
 	if elapsed < 900*time.Millisecond {
 		t.Fatalf("期望至少等待 ~1 秒，但只等了 %v", elapsed)
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 }
 
 func TestCalcRetryDelay_ExponentialBackoff(t *testing.T) {

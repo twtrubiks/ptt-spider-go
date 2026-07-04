@@ -1,3 +1,4 @@
+// Package ptt 提供 PTT 網站整合：HTTP 客戶端（含連線池與 over18 cookie）與 HTML 解析。
 package ptt
 
 import (

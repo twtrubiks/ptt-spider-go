@@ -225,12 +225,12 @@ func TestGetDelayRange(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			min, max := tt.config.GetDelayRange()
-			if min != tt.expectMin {
-				t.Errorf("GetDelayRange() min = %v, want %v", min, tt.expectMin)
+			gotMin, gotMax := tt.config.GetDelayRange()
+			if gotMin != tt.expectMin {
+				t.Errorf("GetDelayRange() min = %v, want %v", gotMin, tt.expectMin)
 			}
-			if max != tt.expectMax {
-				t.Errorf("GetDelayRange() max = %v, want %v", max, tt.expectMax)
+			if gotMax != tt.expectMax {
+				t.Errorf("GetDelayRange() max = %v, want %v", gotMax, tt.expectMax)
 			}
 		})
 	}

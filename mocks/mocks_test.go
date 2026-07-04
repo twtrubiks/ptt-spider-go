@@ -24,7 +24,7 @@ func TestMockHTTPClient(t *testing.T) {
 	}
 
 	// Test custom behavior
-	client.DoFunc = func(req *http.Request) (*http.Response, error) {
+	client.DoFunc = func(_ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 404,
 			Body:       io.NopCloser(strings.NewReader("Not Found")),
@@ -40,7 +40,7 @@ func TestMockHTTPClient(t *testing.T) {
 	}
 
 	// Test error behavior
-	client.DoFunc = func(req *http.Request) (*http.Response, error) {
+	client.DoFunc = func(_ *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("connection failed")
 	}
 
@@ -92,7 +92,7 @@ func testDefaultParseArticles(t *testing.T, parser *MockParser) {
 }
 
 func testCustomParseArticles(t *testing.T, parser *MockParser) {
-	parser.ParseArticlesFunc = func(body io.Reader) ([]types.ArticleInfo, error) {
+	parser.ParseArticlesFunc = func(_ io.Reader) ([]types.ArticleInfo, error) {
 		return []types.ArticleInfo{
 			{Title: "Test Article", URL: "http://example.com", PushRate: 10},
 		}, nil
@@ -124,7 +124,7 @@ func testDefaultParseArticleContent(t *testing.T, parser *MockParser) {
 }
 
 func testCustomParseArticleContent(t *testing.T, parser *MockParser) {
-	parser.ParseArticleContentFunc = func(body io.Reader) (string, []string, error) {
+	parser.ParseArticleContentFunc = func(_ io.Reader) (string, []string, error) {
 		return "Custom Title", []string{"http://custom.com/image1.jpg", "http://custom.com/image2.jpg"}, nil
 	}
 
@@ -151,7 +151,7 @@ func testDefaultParseMaxPage(t *testing.T, parser *MockParser) {
 }
 
 func testCustomParseMaxPage(t *testing.T, parser *MockParser) {
-	parser.ParseMaxPageFunc = func(body io.Reader) (int, error) {
+	parser.ParseMaxPageFunc = func(_ io.Reader) (int, error) {
 		return 50, nil
 	}
 
@@ -182,7 +182,7 @@ func TestMockMarkdownGenerator(t *testing.T) {
 	}
 
 	// Test custom behavior
-	generator.GenerateFunc = func(info types.MarkdownInfo) error {
+	generator.GenerateFunc = func(_ types.MarkdownInfo) error {
 		if info.Title != "Test Article" {
 			return fmt.Errorf("unexpected title: %s", info.Title)
 		}
@@ -195,7 +195,7 @@ func TestMockMarkdownGenerator(t *testing.T) {
 	}
 
 	// Test error behavior
-	generator.GenerateFunc = func(info types.MarkdownInfo) error {
+	generator.GenerateFunc = func(_ types.MarkdownInfo) error {
 		return fmt.Errorf("generation failed")
 	}
 

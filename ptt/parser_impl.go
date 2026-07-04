@@ -28,7 +28,7 @@ func (p *ParserImpl) ParseArticles(r io.Reader) ([]types.ArticleInfo, error) {
 	}
 
 	var articles []types.ArticleInfo
-	doc.Find(".r-ent").Each(func(i int, s *goquery.Selection) {
+	doc.Find(".r-ent").Each(func(_ int, s *goquery.Selection) {
 		titleNode := s.Find(".title a")
 		if titleNode.Length() == 0 {
 			return // 處理被刪除的文章
@@ -79,7 +79,7 @@ func (p *ParserImpl) ParseArticleContent(r io.Reader) (string, []string, error) 
 
 	// 提取文章標題
 	title := ""
-	doc.Find(".article-meta-tag").EachWithBreak(func(i int, s *goquery.Selection) bool {
+	doc.Find(".article-meta-tag").EachWithBreak(func(_ int, s *goquery.Selection) bool {
 		if strings.TrimSpace(s.Text()) == "標題" {
 			title = strings.TrimSpace(s.Next().Text())
 			return false // 找到後就停止遍歷
@@ -89,7 +89,7 @@ func (p *ParserImpl) ParseArticleContent(r io.Reader) (string, []string, error) 
 
 	// 提取圖片 URL
 	var imgURLs []string
-	doc.Find("a").Each(func(i int, s *goquery.Selection) {
+	doc.Find("a").Each(func(_ int, s *goquery.Selection) {
 		href, exists := s.Attr("href")
 		if !exists {
 			return

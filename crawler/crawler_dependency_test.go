@@ -95,11 +95,11 @@ func TestCrawler_ArticleProducerWithMocks(t *testing.T) {
 	mockParser := &mocks.MockParser{}
 
 	// Set up mock parser to return test data
-	mockParser.ParseMaxPageFunc = func(body io.Reader) (int, error) {
+	mockParser.ParseMaxPageFunc = func(_ io.Reader) (int, error) {
 		return 5, nil
 	}
 
-	mockParser.ParseArticlesFunc = func(body io.Reader) ([]types.ArticleInfo, error) {
+	mockParser.ParseArticlesFunc = func(_ io.Reader) ([]types.ArticleInfo, error) {
 		return []types.ArticleInfo{
 			{Title: "Test Article 1", URL: "http://example.com/1", PushRate: 15},
 			{Title: "Test Article 2", URL: "http://example.com/2", PushRate: 20},
@@ -107,7 +107,7 @@ func TestCrawler_ArticleProducerWithMocks(t *testing.T) {
 	}
 
 	// Set up mock client to return test HTML
-	mockClient.DoFunc = func(req *http.Request) (*http.Response, error) {
+	mockClient.DoFunc = func(_ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 200,
 			Body:       io.NopCloser(strings.NewReader("<html>test</html>")),
@@ -166,12 +166,12 @@ func TestCrawler_ContentParserWithMocks(t *testing.T) {
 	mockMarkdownGen := &mocks.MockMarkdownGenerator{}
 
 	// Set up mock parser
-	mockParser.ParseArticleContentFunc = func(body io.Reader) (string, []string, error) {
+	mockParser.ParseArticleContentFunc = func(_ io.Reader) (string, []string, error) {
 		return "Parsed Title", []string{"http://example.com/image1.jpg", "http://example.com/image2.jpg"}, nil
 	}
 
 	// Set up mock client
-	mockClient.DoFunc = func(req *http.Request) (*http.Response, error) {
+	mockClient.DoFunc = func(_ *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: 200,
 			Body:       io.NopCloser(strings.NewReader("<html>article content</html>")),
@@ -179,7 +179,7 @@ func TestCrawler_ContentParserWithMocks(t *testing.T) {
 	}
 
 	// Track markdown generation calls
-	mockMarkdownGen.GenerateFunc = func(info types.MarkdownInfo) error {
+	mockMarkdownGen.GenerateFunc = func(_ types.MarkdownInfo) error {
 		return nil
 	}
 
@@ -323,7 +323,7 @@ func TestCrawler_ErrorHandling(t *testing.T) {
 	mockParser := &mocks.MockParser{}
 
 	// Set up mock to return error
-	mockClient.DoFunc = func(req *http.Request) (*http.Response, error) {
+	mockClient.DoFunc = func(_ *http.Request) (*http.Response, error) {
 		return nil, fmt.Errorf("network error")
 	}
 

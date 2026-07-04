@@ -1,3 +1,4 @@
+// Package mocks 提供 function field pattern 的 mock 物件，供各套件測試使用。
 package mocks
 
 import (
@@ -13,6 +14,7 @@ type MockHTTPClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }
 
+// Do 呼叫 DoFunc（若已設定），否則回傳 200 空回應
 func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	if m.DoFunc != nil {
 		return m.DoFunc(req)
@@ -30,6 +32,7 @@ type MockParser struct {
 	ParseMaxPageFunc        func(body io.Reader) (int, error)
 }
 
+// ParseArticles 呼叫 ParseArticlesFunc（若已設定），否則回傳空列表
 func (m *MockParser) ParseArticles(body io.Reader) ([]types.ArticleInfo, error) {
 	if m.ParseArticlesFunc != nil {
 		return m.ParseArticlesFunc(body)
@@ -37,6 +40,7 @@ func (m *MockParser) ParseArticles(body io.Reader) ([]types.ArticleInfo, error) 
 	return []types.ArticleInfo{}, nil
 }
 
+// ParseArticleContent 呼叫 ParseArticleContentFunc（若已設定），否則回傳固定的測試資料
 func (m *MockParser) ParseArticleContent(body io.Reader) (string, []string, error) {
 	if m.ParseArticleContentFunc != nil {
 		return m.ParseArticleContentFunc(body)
@@ -44,6 +48,7 @@ func (m *MockParser) ParseArticleContent(body io.Reader) (string, []string, erro
 	return "Mock Title", []string{"http://example.com/image.jpg"}, nil
 }
 
+// ParseMaxPage 呼叫 ParseMaxPageFunc（若已設定），否則回傳 100
 func (m *MockParser) ParseMaxPage(body io.Reader) (int, error) {
 	if m.ParseMaxPageFunc != nil {
 		return m.ParseMaxPageFunc(body)
@@ -56,6 +61,7 @@ type MockMarkdownGenerator struct {
 	GenerateFunc func(info types.MarkdownInfo) error
 }
 
+// Generate 呼叫 GenerateFunc（若已設定），否則回傳 nil
 func (m *MockMarkdownGenerator) Generate(info types.MarkdownInfo) error {
 	if m.GenerateFunc != nil {
 		return m.GenerateFunc(info)
