@@ -28,4 +28,8 @@ const (
 	RetryInitialDelayMs = 1000  // 初始退避延遲（毫秒）
 	RetryMaxDelayMs     = 30000 // 最大退避延遲（毫秒）
 	RetryBackoffFactor  = 2     // 指數退避倍數
+
+	// MaxImageSizeBytes 單張圖片下載大小上限（50 MB），
+	// 圖片連結來自文章內容（外部可控），防止超大回應寫爆磁碟
+	MaxImageSizeBytes int64 = 50 * 1024 * 1024
 )

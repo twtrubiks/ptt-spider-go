@@ -624,7 +624,8 @@ func (c *Crawler) fetchImage(ctx context.Context, id int, imageURL string) *http
 	return resp
 }
 
-// saveToFile 將回應 Body 儲存至指定路徑
+// saveToFile 將回應 Body 儲存至指定路徑。
+// 下載大小受 constants.MaxImageSizeBytes 限制，超限或中途失敗的半截檔會被刪除。
 func (c *Crawler) saveToFile(resp *http.Response, savePath string, id int) {
 	defer ioutil.CloseWithLog(resp.Body, fmt.Sprintf("工人 #%d 回應 Body", id))
 
@@ -639,10 +640,14 @@ func (c *Crawler) saveToFile(resp *http.Response, savePath string, id int) {
 		c.logger.Error("工人 #%d 建立檔案失敗: %s, 錯誤: %v", id, savePath, err)
 		return
 	}
-	defer ioutil.CloseWithLog(file, fmt.Sprintf("工人 #%d 檔案", id))
 
-	if _, err = io.Copy(file, resp.Body); err != nil {
+	// 多讀 1 byte 用於偵測回應是否超過大小上限
+	written, err := io.Copy(file, io.LimitReader(resp.Body, constants.MaxImageSizeBytes+1))
+	ioutil.CloseWithLog(file, fmt.Sprintf("工人 #%d 檔案", id))
+
+	if err != nil {
 		c.logger.Error("工人 #%d 寫入檔案失敗: %s, 錯誤: %v", id, savePath, err)
+		c.removeIncompleteFile(savePath, id)
 		c.emit(types.ProgressEvent{
 			Type:     types.EventDownloadFail,
 			WorkerID: id,
@@ -650,12 +655,31 @@ func (c *Crawler) saveToFile(resp *http.Response, savePath string, id int) {
 		})
 		return
 	}
+
+	if written > constants.MaxImageSizeBytes {
+		c.logger.Error("工人 #%d 圖片超過大小上限 %d bytes，已捨棄: %s", id, constants.MaxImageSizeBytes, savePath)
+		c.removeIncompleteFile(savePath, id)
+		c.emit(types.ProgressEvent{
+			Type:     types.EventDownloadFail,
+			WorkerID: id,
+			Message:  fmt.Sprintf("超過大小上限: %s", savePath),
+		})
+		return
+	}
+
 	c.logger.Success("工人 #%d 下載完成: %s", id, savePath)
 	c.emit(types.ProgressEvent{
 		Type:     types.EventDownloadDone,
 		WorkerID: id,
 		Message:  savePath,
 	})
+}
+
+// removeIncompleteFile 刪除下載失敗或超限留下的半截檔
+func (c *Crawler) removeIncompleteFile(savePath string, id int) {
+	if err := os.Remove(savePath); err != nil {
+		c.logger.Error("工人 #%d 清除半截檔失敗: %s, 錯誤: %v", id, savePath, err)
+	}
 }
 
 // downloadWorker 是 Worker Pool 中的一個工人 Goroutine

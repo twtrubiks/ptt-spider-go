@@ -2,13 +2,19 @@ package crawler
 
 import (
 	"context"
+	"errors"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
+	"testing/iotest"
 	"time"
 
 	"github.com/twtrubiks/ptt-spider-go/config"
+	"github.com/twtrubiks/ptt-spider-go/mocks"
 )
 
 func TestNewCrawler(t *testing.T) {
@@ -364,5 +370,79 @@ func TestCrawlerChannelBuffers(t *testing.T) {
 	}
 	if crawler.config.Crawler.Channels.MarkdownTask != 5 {
 		t.Errorf("Expected MarkdownTask channel buffer 5, got %d", crawler.config.Crawler.Channels.MarkdownTask)
+	}
+}
+
+// endlessReader 產生無限長度的資料流，用於模擬超大回應
+type endlessReader struct{}
+
+func (endlessReader) Read(p []byte) (int, error) { return len(p), nil }
+
+func newTestCrawlerForSave(t *testing.T) *Crawler {
+	t.Helper()
+	return NewCrawlerWithDependencies(
+		mocks.NewMockHTTPClient(),
+		mocks.NewMockParser(),
+		mocks.NewMockMarkdownGenerator(),
+		"test", 1, 0, "", config.DefaultConfig(),
+	)
+}
+
+// TestSaveToFile_ExceedsSizeLimit 驗證圖片超過大小上限時不會寫爆磁碟，且半截檔會被清除。
+func TestSaveToFile_ExceedsSizeLimit(t *testing.T) {
+	c := newTestCrawlerForSave(t)
+	savePath := filepath.Join(t.TempDir(), "big.jpg")
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(endlessReader{}),
+	}
+
+	c.saveToFile(resp, savePath, 1)
+
+	if _, err := os.Stat(savePath); !os.IsNotExist(err) {
+		t.Errorf("超過大小上限的檔案應被刪除，但仍存在: %s", savePath)
+	}
+}
+
+// TestSaveToFile_PartialDownloadRemoved 驗證下載中途失敗時半截檔會被清除。
+func TestSaveToFile_PartialDownloadRemoved(t *testing.T) {
+	c := newTestCrawlerForSave(t)
+	savePath := filepath.Join(t.TempDir(), "partial.jpg")
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body: io.NopCloser(io.MultiReader(
+			strings.NewReader("partial data"),
+			iotest.ErrReader(errors.New("connection reset")),
+		)),
+	}
+
+	c.saveToFile(resp, savePath, 1)
+
+	if _, err := os.Stat(savePath); !os.IsNotExist(err) {
+		t.Errorf("下載中途失敗的半截檔應被刪除，但仍存在: %s", savePath)
+	}
+}
+
+// TestSaveToFile_Success 驗證正常下載會完整寫入檔案。
+func TestSaveToFile_Success(t *testing.T) {
+	c := newTestCrawlerForSave(t)
+	savePath := filepath.Join(t.TempDir(), "ok.jpg")
+
+	content := "fake image bytes"
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(content)),
+	}
+
+	c.saveToFile(resp, savePath, 1)
+
+	data, err := os.ReadFile(savePath)
+	if err != nil {
+		t.Fatalf("讀取下載檔案失敗: %v", err)
+	}
+	if string(data) != content {
+		t.Errorf("檔案內容 = %q, want %q", string(data), content)
 	}
 }
