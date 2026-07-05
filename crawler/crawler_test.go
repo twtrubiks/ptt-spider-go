@@ -608,3 +608,67 @@ func TestRunWaitsForProducer(t *testing.T) {
 	// producer 此時必已結束，不會再有 emit。
 	close(progressCh)
 }
+
+// TestRunWaitsForParsers 驗證 ctx 取消時 Run 會等待所有 contentParser 結束才返回。
+// 若 Run 提前返回，TUI 模式會關閉 progress channel，
+// 仍在 processArticle 中的 parser 隨後呼叫 emit 就會對已關閉的 channel 做 send 而 panic。
+func TestRunWaitsForParsers(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+
+	parser := &mocks.MockParser{
+		ParseMaxPageFunc: func(io.Reader) (int, error) { return 10, nil },
+		ParseArticlesFunc: func(io.Reader) ([]types.ArticleInfo, error) {
+			return []types.ArticleInfo{
+				{Title: "test", URL: "https://www.ptt.cc/bbs/test/M.111.A.html", PushRate: 10},
+			}, nil
+		},
+		ParseArticleContentFunc: func(io.Reader) (string, []string, error) {
+			close(entered) // 通知測試：parser 已進入文章內容解析
+			<-release      // 卡住，模擬解析進行中（此期間 ctx 被取消）
+			return "title", nil, nil
+		},
+	}
+
+	cfg := config.DefaultConfig()
+	cfg.Crawler.Delays.MinMs = 0
+	cfg.Crawler.Delays.MaxMs = 0
+
+	c := NewCrawlerWithDependencies(
+		mocks.NewMockHTTPClient(), parser, mocks.NewMockMarkdownGenerator(),
+		"test", 1, 0, "", cfg,
+	)
+	progressCh := make(chan types.ProgressEvent, 200)
+	c.progress = progressCh
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	runDone := make(chan struct{})
+	go func() {
+		c.Run(ctx)
+		close(runDone)
+	}()
+
+	<-entered // parser 正在 ParseArticleContent 中
+	cancel()  // 模擬 Ctrl+C：downloaders、markdown worker、producer 都會立刻退出
+
+	// parser 仍卡在 ParseArticleContent，Run 不得返回
+	select {
+	case <-runDone:
+		t.Fatal("Run 在 parser 結束前返回，TUI 模式關閉 progress channel 後 processArticle 的 emit 會 panic")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(release) // 讓 parser 完成解析，隨後 processArticle 會呼叫 emit
+
+	select {
+	case <-runDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run 未在 parser 結束後返回")
+	}
+
+	// 模擬 main.go runWithTUI：Run 返回後關閉 progress channel。
+	// parser 此時必已結束，不會再有 emit。
+	close(progressCh)
+}

@@ -140,3 +140,4 @@ mockParser := &mocks.MockParser{
 - 同篇文章的圖片 URL 派發前需去重；目錄名由 `Crawler.uniqueDirName` 分配（撞名加序號後綴）
 - 錯誤型別使用不可變模式（`WithContext()` 回傳新副本）
 - `startProducer` 必須在 goroutine 中執行（避免 context 取消時 deadlock），且 `Run()` 需等待該 goroutine 結束才返回（避免 TUI 模式 close(progressCh) 後 producer 的 emit 對已關閉 channel 做 send 造成 panic）
+- `waitAndCleanup` 必須在主流程同步等待 `Parsers.Wait()`（不可放進 detached goroutine）：ctx 取消時 downloaders/markdown 會先退出，若不等 parsers，`Run()` 會在 parser 仍在 `processArticle` 中時返回，其後的 emit 同樣會對已關閉的 progress channel panic

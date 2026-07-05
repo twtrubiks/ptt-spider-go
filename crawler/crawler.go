@@ -240,12 +240,16 @@ func (c *Crawler) startProducer(ctx context.Context, articleChan chan<- types.Ar
 
 // waitAndCleanup 等待所有工人完成並進行清理
 func (c *Crawler) waitAndCleanup(workers *Workers, channels *WorkerChannels) {
-	// 啟動一個 goroutine，等待所有文章解析完成後，關閉下載和 Markdown 任務 channel
-	go func() {
-		workers.Parsers.Wait()
-		close(channels.DownloadTask)
-		close(channels.MarkdownTask)
-	}()
+	// 等待所有文章解析完成後，關閉下載和 Markdown 任務 channel。
+	// 必須在主流程同步等待（而非 detached goroutine）：
+	// ctx 取消時 downloaders/markdown 會先退出，若不等 parsers，
+	// Run 會在 parser 仍在 processArticle 中時返回，
+	// TUI 模式隨後關閉 progress channel，parser 的 emit 就會 panic。
+	// 同步等待不會 deadlock：parsers 產出時 downloaders/markdown 已在並行消費，
+	// 且 dispatch 的 select 均有 ctx.Done() 分支。
+	workers.Parsers.Wait()
+	close(channels.DownloadTask)
+	close(channels.MarkdownTask)
 
 	// 等待所有下載和 Markdown 任務完成
 	workers.Downloaders.Wait()

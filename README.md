@@ -528,7 +528,7 @@ http:
 
 - **math/rand/v2**: 使用 per-goroutine 隨機數生成器，避免全域鎖競爭提升並發效能
 - **time.NewTimer**: 替代 `select` 中的 `time.After`，避免未觸發的 timer 無法被 GC 回收造成洩漏
-- **startProducer goroutine**: 非同步啟動生產者，避免 context 取消時阻塞在 channel 寫入造成 deadlock；`Run` 返回前會等待生產者結束，避免 TUI 模式對已關閉的 progress channel 發送事件造成 panic
+- **startProducer goroutine**: 非同步啟動生產者，避免 context 取消時阻塞在 channel 寫入造成 deadlock；`Run` 返回前會等待生產者與所有解析器結束，避免 TUI 模式對已關閉的 progress channel 發送事件造成 panic
 - **CloseWithLog**: 統一透過 `internal/ioutil.CloseWithLog` 處理 `io.Closer` 關閉，確保錯誤不被靜默忽略
 - **CrawlerError 不可變性**: `WithContext` 回傳新副本，`IsXxxError` 改用 `errors.As` 支援 wrapped error 鏈
 
@@ -617,7 +617,7 @@ func (c *Crawler) Run(ctx context.Context) {
         defer close(producerDone)
         c.startProducer(ctx, channels.ArticleInfo)
     }()
-    c.waitAndCleanup(workers, channels)
+    c.waitAndCleanup(workers, channels) // 同步等待 parsers 結束後才關閉下游 channel
     <-producerDone // ctx 取消時 workers 會提前退出，需等 producer 結束才返回
 }
 ```
