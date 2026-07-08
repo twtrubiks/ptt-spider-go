@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
@@ -190,7 +190,7 @@ func TestLiveModel_ViewContainsBoard(t *testing.T) {
 	defer cancel()
 
 	m := newLiveModel(LiveConfig{Board: "beauty", Pages: 3, PushRate: 10}, ch, cancel)
-	view := m.View()
+	view := m.View().Content
 
 	if !strings.Contains(view, "beauty") {
 		t.Error("View should contain board name")
@@ -212,7 +212,7 @@ func TestLiveModel_ViewDone(t *testing.T) {
 	m.done = true
 	m.doneMsg = "總耗時: 5s"
 
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "完成") {
 		t.Error("done View should contain completion message")
 	}
@@ -230,7 +230,7 @@ func TestLiveModel_DoneEnterQuits(t *testing.T) {
 	m.done = true
 
 	// Enter should quit when done
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if cmd == nil {
 		t.Error("Enter should return quit command when done")
 	}
@@ -244,7 +244,7 @@ func TestLiveModel_EnterIgnoredWhenNotDone(t *testing.T) {
 	m := newLiveModel(LiveConfig{Board: "test", Pages: 1}, ch, cancel)
 
 	// Enter should be ignored when not done
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if cmd != nil {
 		t.Error("Enter should not return command when not done")
 	}
@@ -258,7 +258,7 @@ func TestLiveModel_UpdateQuit(t *testing.T) {
 	m := newLiveModel(LiveConfig{Board: "test", Pages: 1}, ch, cancel)
 
 	// Simulate Ctrl+C
-	newModel, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	newModel, cmd := m.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	updated := newModel.(liveModel)
 
 	if !updated.quitting {

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/progress"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/progress"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/twtrubiks/ptt-spider-go/types"
 )
 
@@ -74,8 +74,8 @@ type liveModel struct {
 }
 
 func newLiveModel(cfg LiveConfig, progressCh <-chan types.ProgressEvent, cancel context.CancelFunc) liveModel {
-	pageBar := progress.New(progress.WithGradient("#5A56E0", "#04B575"), progress.WithWidth(40))
-	downloadBar := progress.New(progress.WithGradient("#FF6B6B", "#4ECDC4"), progress.WithWidth(40))
+	pageBar := progress.New(progress.WithColors(lipgloss.Color("#5A56E0"), lipgloss.Color("#04B575")), progress.WithWidth(40))
+	downloadBar := progress.New(progress.WithColors(lipgloss.Color("#FF6B6B"), lipgloss.Color("#4ECDC4")), progress.WithWidth(40))
 
 	return liveModel{
 		cfg:         cfg,
@@ -95,7 +95,7 @@ func (m liveModel) Init() tea.Cmd {
 
 func (m liveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+c":
 			m.quitting = true
@@ -124,8 +124,8 @@ func (m liveModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if barWidth > 60 {
 			barWidth = 60
 		}
-		m.pageBar.Width = barWidth
-		m.downloadBar.Width = barWidth
+		m.pageBar.SetWidth(barWidth)
+		m.downloadBar.SetWidth(barWidth)
 
 	case progressMsg:
 		evt := types.ProgressEvent(msg)
@@ -188,9 +188,9 @@ func (m *liveModel) addLog(ts, level, msg string) {
 	}
 }
 
-func (m liveModel) View() string {
+func (m liveModel) View() tea.View {
 	if m.quitting {
-		return "正在停止爬蟲...\n"
+		return m.newAltScreenView("正在停止爬蟲...\n")
 	}
 
 	var b strings.Builder
@@ -287,7 +287,15 @@ func (m liveModel) View() string {
 		b.WriteString("\n")
 	}
 
-	return b.String()
+	return m.newAltScreenView(b.String())
+}
+
+// newAltScreenView 建立啟用 AltScreen 的 tea.View
+// （v2 改為在 View 上宣告式設定，取代 v1 的 tea.WithAltScreen program option）
+func (m liveModel) newAltScreenView(content string) tea.View {
+	v := tea.NewView(content)
+	v.AltScreen = true
+	return v
 }
 
 // waitForProgress 建立一個 tea.Cmd 等待下一個進度事件
@@ -315,7 +323,7 @@ func truncate(s string, maxLen int) string {
 // cancel 用於在使用者按 Ctrl+C 時取消 crawler 的 context。
 func RunLiveTUI(cfg LiveConfig, progressCh <-chan types.ProgressEvent, cancel context.CancelFunc) error {
 	m := newLiveModel(cfg, progressCh, cancel)
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	_, err := p.Run()
 	return err
 }

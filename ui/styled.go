@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 var (
@@ -39,7 +39,7 @@ func NewStyledLogger() *StyledLogger {
 func (l *StyledLogger) Info(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	l.mu.Lock()
-	fmt.Fprintf(os.Stderr, "%s %s  %s\n", timestamp(), infoLabel.Render("INFO"), infoText.Render(msg))
+	_, _ = lipgloss.Fprintf(os.Stderr, "%s %s  %s\n", timestamp(), infoLabel.Render("INFO"), infoText.Render(msg))
 	l.mu.Unlock()
 }
 
@@ -47,7 +47,7 @@ func (l *StyledLogger) Info(format string, args ...any) {
 func (l *StyledLogger) Success(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	l.mu.Lock()
-	fmt.Fprintf(os.Stderr, "%s %s  %s\n", timestamp(), successLabel.Render(" OK "), successText.Render(msg))
+	_, _ = lipgloss.Fprintf(os.Stderr, "%s %s  %s\n", timestamp(), successLabel.Render(" OK "), successText.Render(msg))
 	l.mu.Unlock()
 }
 
@@ -55,7 +55,7 @@ func (l *StyledLogger) Success(format string, args ...any) {
 func (l *StyledLogger) Error(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	l.mu.Lock()
-	fmt.Fprintf(os.Stderr, "%s %s  %s\n", timestamp(), errorLabel.Render(" ERR"), errorText.Render(msg))
+	_, _ = lipgloss.Fprintf(os.Stderr, "%s %s  %s\n", timestamp(), errorLabel.Render(" ERR"), errorText.Render(msg))
 	l.mu.Unlock()
 }
 
@@ -63,7 +63,7 @@ func (l *StyledLogger) Error(format string, args ...any) {
 func (l *StyledLogger) Warn(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	l.mu.Lock()
-	fmt.Fprintf(os.Stderr, "%s %s  %s\n", timestamp(), warnLabel.Render("WARN"), warnText.Render(msg))
+	_, _ = lipgloss.Fprintf(os.Stderr, "%s %s  %s\n", timestamp(), warnLabel.Render("WARN"), warnText.Render(msg))
 	l.mu.Unlock()
 }
 

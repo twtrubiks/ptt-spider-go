@@ -417,10 +417,10 @@ func TestCrawler_WithMock(t *testing.T) {
 
 - **[goquery](https://github.com/PuerkitoBio/goquery)**: HTML 解析和 DOM 操作
 - **[yaml.v3](https://gopkg.in/yaml.v3)**: YAML 配置檔案解析
-- **[lipgloss](https://github.com/charmbracelet/lipgloss)**: 終端輸出樣式化（彩色分級日誌）
-- **[huh](https://github.com/charmbracelet/huh)**: TUI 互動式表單（基於 Bubble Tea）
-- **[bubbletea](https://github.com/charmbracelet/bubbletea)**: TUI 框架（即時進度畫面）
-- **[bubbles](https://github.com/charmbracelet/bubbles)**: TUI 元件庫（進度條）
+- **[lipgloss v2](https://github.com/charmbracelet/lipgloss)**: 終端輸出樣式化（彩色分級日誌）
+- **[huh v2](https://github.com/charmbracelet/huh)**: TUI 互動式表單（基於 Bubble Tea）
+- **[bubbletea v2](https://github.com/charmbracelet/bubbletea)**: TUI 框架（即時進度畫面）
+- **[bubbles v2](https://github.com/charmbracelet/bubbles)**: TUI 元件庫（進度條）
 - **Go 標準庫**: context, net/http, sync, os/signal 等
 
 ## 🎯 結構化錯誤處理

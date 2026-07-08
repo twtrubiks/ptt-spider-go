@@ -133,6 +133,7 @@ mockParser := &mocks.MockParser{
 ## Key Conventions
 
 - Go 最低版本：1.26
+- charm 系列套件使用 v2 與官方新 module path：`charm.land/bubbletea/v2`、`charm.land/lipgloss/v2`、`charm.land/bubbles/v2`、`charm.land/huh/v2`（勿再 import `github.com/charmbracelet/*` v1 路徑）；lipgloss v2 獨立輸出（非 TUI）需用 `lipgloss.Fprintf` 等 writer 函式做色彩降採樣
 - 使用 `time.NewTimer()` 而非 `time.After()`（避免 timer 洩漏）
 - 使用 `math/rand/v2` 的 `rand.IntN()`（避免全域鎖競爭）
 - 使用 `ioutil.CloseWithLog()` 關閉所有 `io.Closer` 資源
